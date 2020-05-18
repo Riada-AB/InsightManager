@@ -73,17 +73,15 @@ class InsightManagerForScriptrunner {
 
     InsightManagerForScriptrunner() {
 
-        //TODO improve version chekcing for >8.3
-
         PluginVersionStore pluginVersionStore = ComponentAccessor.getComponentOfType(PluginVersionStore)
         ArrayList<Integer> currentInsightVersion = pluginVersionStore.getAll().find { it.name == "Insight" }.version.split(/\./).collect { it.toInteger() }
-        ArrayList<Integer> maxInsightVersion = [8, 4, 99999]
-        if (currentInsightVersion[0] > maxInsightVersion[0] ||
-                currentInsightVersion[1] > maxInsightVersion[1] ||
-                currentInsightVersion[2] > maxInsightVersion[2]
+        ArrayList<Integer> minInsightVersion = [8, 4, 0]
+        if (currentInsightVersion[0] < minInsightVersion[0] ||
+                currentInsightVersion[1] < minInsightVersion[1] ||
+                currentInsightVersion[2] < minInsightVersion[2]
         ) {
 
-            throw new InputMismatchException("Unsupported Insight verion ${currentInsightVersion.join(".")}, max supported verion is  ${maxInsightVersion.join(".")}")
+            throw new InputMismatchException("Unsupported Insight verion ${currentInsightVersion.join(".")}, minimum supported verion is  ${minInsightVersion.join(".")}")
         }
 
 
