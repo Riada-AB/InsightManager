@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Based on POM from Adaptavist: https://bitbucket.org/Adaptavist/scriptrunner-samples/src/master/jira/pom.xml -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+    <packaging>atlassian-plugin</packaging>
+
+    <parent>
+        <groupId>com.adaptavist.pom</groupId>
+        <artifactId>scriptrunner-jira-standard</artifactId>
+        <version>21</version>
+        <relativePath/>
+    </parent>
+
+
+    <groupId>customRiadaLibraries</groupId>
+    <artifactId>InsightManager</artifactId>
+    <version>1.0</version>
+
+    <name>Insight Manger</name>
+    <description>A wrapper for Insight JAVA API</description>
+
+    <properties>
+        <!-- Set your JIRA version here -->
+        <jira.version>8.6.0</jira.version>
+        <insight.version>8.4.2</insight.version>
+
+    </properties>
+
+    <dependencies>
+        <!-- The parent pom adds some standard dependencies, but you can add additional ones here -->
+        <dependency>
+            <groupId>com.riadalabs.jira.plugins</groupId>
+            <artifactId>insight</artifactId>
+            <version>${insight.version}</version>
+            <scope>compile</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.atlassian.maven.plugins</groupId>
+                <artifactId>maven-jira-plugin</artifactId>
+                <configuration>
+                    <jvmArgs>-Xms512m -Xmx1g -XX:MaxPermSize=1g -XX:-UseGCOverheadLimit -server</jvmArgs>
+                    <applications>
+                        <!-- Uncomment these if you wish to include them -->
+
+                        <!-- Include Jira Software features -->
+                        <!--
+                        <application>
+                            <applicationKey>jira-software</applicationKey>
+                            <version>${jira.software.version}</version>
+                        </application>
+                        -->
+
+                        <!-- Include Jira Service Desk features -->
+                        <!--
+                        <application>
+                            <applicationKey>jira-servicedesk</applicationKey>
+                            <version>${jira.servicedesk.version}</version>
+                        </application>
+                        -->
+                    </applications>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <repositories>
+        <!-- This is required to find the parent pom and ScriptRunner dependencies -->
+        <repository>
+            <id>adaptavist-external</id>
+            <url>https://nexus.adaptavist.com/content/repositories/external</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <releases>
+                <enabled>true</enabled>
+                <checksumPolicy>fail</checksumPolicy>
+            </releases>
+        </repository>
+
+            <repository>
+                <id>riada-repository</id>
+                <url>https://repo.riada.io/repository/riada-repo/</url>
+            </repository>
+
+    </repositories>
+</project>
