@@ -55,7 +55,8 @@ im.updateObjectAttributes(123, Status , "Up and running")
 ```
 ### Documentation and Logs > Comments
 IM is not heavily commented, rather it has quite extensive logging and the methods have individual documentation that can be read either by looking directly in IM or if you are using Intellij you can highlight the method and press F1:
-<img src="Documentation/Images/ImMethodDocumentation.png" width="600">
+<img src="https://raw.githubusercontent.com/wiki/Riada-AB/InsightManager/Images/ImMethodDocumentation.png" width="600">
+
 
 To enable all IM logs:
 ```groovy
@@ -89,13 +90,12 @@ Sometimes you might need to display an Insight object in places and ways that In
 im.renderObjectToHtml(serverObject)
 ```
 
-<img src="Documentation/Images/ImRenderObjectToHtmlDocumentation.png" width="500">
+<img src="https://raw.githubusercontent.com/wiki/Riada-AB/InsightManager/Images/ImRenderObjectToHtmlDocumentation.png" width="500">
 
 
 
 ## How do I get started?
 
-Have a look at the [setup guide](Documentation/Setup.md) to get IM setup in your environment and then dig in to the [documentation](Documentation/MethodOverview.md) and [examples](Documentation/Examples)
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbMTEyNzYxNzE1NV19
--->
+
+Have a look at the [setup guide](https://github.com/Riada-AB/InsightManager/wiki/Setup-and-Upgrade) to get IM setup in your environment and then dig in to the [documentation](https://github.com/Riada-AB/InsightManager/wiki/Method-Overview).
+
