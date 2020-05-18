@@ -36,7 +36,6 @@ import java.time.LocalDateTime
  */
 
 
-//TODO getObjectAttributeValues should not return Status Ids
 
 @WithPlugin("com.riadalabs.jira.plugins.insight")
 
@@ -316,11 +315,9 @@ class InsightManagerForScriptrunner {
         }
 
 
-        //Todo Fix for 8.4
+
         log.debug("\tDetermined import to be: ${importSourceObject.name} (${importSourceObject.id})")
-        ProgressId progressId = new ProgressId(importSourceObject.id.toString(), ProgressCategory.IMPORTS)
-        //Insight 8.4+
-        //ProgressId progressId = ProgressId.create(importSourceObject.id.toString(), "imports")
+        ProgressId progressId = ProgressId.create(importSourceObject.id.toString(), "imports")
 
 
         Progress progress = progressFacade.getProgress(progressId)
