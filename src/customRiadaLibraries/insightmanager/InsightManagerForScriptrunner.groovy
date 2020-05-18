@@ -1,5 +1,6 @@
 package customRiadaLibraries.insightmanager
 
+
 import com.atlassian.jira.component.ComponentAccessor
 import com.atlassian.jira.config.properties.APKeys
 import com.atlassian.jira.plugin.PluginVersionStore
@@ -13,30 +14,17 @@ import com.riadalabs.jira.plugins.insight.services.imports.model.ImportSource
 import com.riadalabs.jira.plugins.insight.services.model.*
 import com.riadalabs.jira.plugins.insight.services.model.factory.ObjectAttributeBeanFactory
 import com.riadalabs.jira.plugins.insight.services.model.factory.ObjectAttributeBeanFactoryImpl
-import com.riadalabs.jira.plugins.insight.services.progress.ProgressCategory
 import com.riadalabs.jira.plugins.insight.services.progress.model.Progress
 import com.riadalabs.jira.plugins.insight.services.progress.model.ProgressId
+import com.riadalabs.jira.plugins.insight.services.progress.ProgressCategory;
+import org.apache.log4j.Level
 import org.apache.log4j.Logger
 import org.joda.time.DateTime
 
 import java.text.DateFormat
 import java.time.LocalDateTime
 
-/**
- * Breaking changes in 8.4
-    *  getObjectAttributeValues() doesnt return empty values
-        *                                                                     <=8.3                           >=8.4
-        * im.getObjectAttributeValues("KEY-123", "An Empty Attribute")        []                              []
-        * im.getObjectAttributeValues("KEY-123", ["An Empty Attribute"])      [A Empty Attribute:[]]          [:]
-        * im.getObjectAttributeValues("KEY-123", [])                          [...,A Empty Attribute:[],..]   [..](A map containing all attributes with values)
 
-    * createObject, updateObjectAttribute, updateObjectAttributes no longer accepts username as input when updating a user attribute,
-      instead user key or an ApplicationUser object is accepted.
- *
- */
-
-
-//TODO getObjectAttributeValues should not return Status Ids
 
 @WithPlugin("com.riadalabs.jira.plugins.insight")
 
@@ -60,8 +48,6 @@ class InsightManagerForScriptrunner {
     ImportSourceConfigurationFacadeImpl importFacade
     Class ProgressFacadeClass
     ProgressFacadeImpl progressFacade
-    Class objectTicketFacadeClass
-    ObjectTicketFacadeImpl objectTicketFacade
     public boolean readOnly
     public boolean autoEscalate = true//should Insight requests be automatically escalated?
     private boolean currentlyEscalate = false
@@ -73,15 +59,16 @@ class InsightManagerForScriptrunner {
 
     InsightManagerForScriptrunner() {
 
+
         PluginVersionStore pluginVersionStore = ComponentAccessor.getComponentOfType(PluginVersionStore)
         ArrayList<Integer> currentInsightVersion = pluginVersionStore.getAll().find { it.name == "Insight" }.version.split(/\./).collect { it.toInteger() }
-        ArrayList<Integer> minInsightVersion = [8, 4, 0]
-        if (currentInsightVersion[0] < minInsightVersion[0] ||
-                currentInsightVersion[1] < minInsightVersion[1] ||
-                currentInsightVersion[2] < minInsightVersion[2]
+        ArrayList<Integer> maxInsightVersion = [8, 3, 99999]
+        if (currentInsightVersion[0] > maxInsightVersion[0] ||
+                currentInsightVersion[1] > maxInsightVersion[1] ||
+                currentInsightVersion[2] > maxInsightVersion[2]
         ) {
 
-            throw new InputMismatchException("Unsupported Insight verion ${currentInsightVersion.join(".")}, minimum supported verion is  ${minInsightVersion.join(".")}")
+            throw new InputMismatchException("Unsupported Insight verion ${currentInsightVersion.join(".")}, max supported verion is  ${maxInsightVersion.join(".")}")
         }
 
 
@@ -93,7 +80,6 @@ class InsightManagerForScriptrunner {
         iqlFacadeClass = ComponentAccessor.getPluginAccessor().getClassLoader().findClass("com.riadalabs.jira.plugins.insight.channel.external.api.facade.IQLFacade");
         ImportSourceConfigurationFacadeClass = ComponentAccessor.getPluginAccessor().getClassLoader().findClass("com.riadalabs.jira.plugins.insight.channel.external.api.facade.ImportSourceConfigurationFacade")
         ProgressFacadeClass = ComponentAccessor.getPluginAccessor().getClassLoader().findClass("com.riadalabs.jira.plugins.insight.channel.external.api.facade.ProgressFacade")
-        objectTicketFacadeClass = ComponentAccessor.getPluginAccessor().getClassLoader().findClass("com.riadalabs.jira.plugins.insight.channel.external.api.facade.ObjectTicketFacade")
 
         //The facade instances
         objectFacade = ComponentAccessor.getOSGiComponentInstanceOfType(objectFacadeClass) as ObjectFacadeImpl
@@ -103,7 +89,6 @@ class InsightManagerForScriptrunner {
         iqlFacade = ComponentAccessor.getOSGiComponentInstanceOfType(iqlFacadeClass) as IQLFacadeImpl
         importFacade = ComponentAccessor.getOSGiComponentInstanceOfType(ImportSourceConfigurationFacadeClass) as ImportSourceConfigurationFacadeImpl
         progressFacade = ComponentAccessor.getOSGiComponentInstanceOfType(ProgressFacadeClass) as ProgressFacadeImpl
-        objectTicketFacade = ComponentAccessor.getOSGiComponentInstanceOfType(objectTicketFacadeClass) as ObjectTicketFacadeImpl
 
         //Atlassian Managers
         authContext = ComponentAccessor.getJiraAuthenticationContext();
@@ -316,11 +301,8 @@ class InsightManagerForScriptrunner {
         }
 
 
-        //Todo Fix for 8.4
         log.debug("\tDetermined import to be: ${importSourceObject.name} (${importSourceObject.id})")
         ProgressId progressId = new ProgressId(importSourceObject.id.toString(), ProgressCategory.IMPORTS)
-        //Insight 8.4+
-        //ProgressId progressId = ProgressId.create(importSourceObject.id.toString(), "imports")
 
 
         Progress progress = progressFacade.getProgress(progressId)
@@ -470,9 +452,9 @@ class InsightManagerForScriptrunner {
         } else {
 
             try {
-                long attributeBeanId = objectFacade.loadObjectAttributeBean(objectBean.id, attribute).id
+                Integer attributeBeanId = objectFacade.loadObjectAttributeBean(objectBean.id, attribute).id
                 if (attributeBeanId != null) {
-                    objectFacade.deleteObjectAttributeBean(attributeBeanId as int, this.eventDispatchOption)
+                    objectFacade.deleteObjectAttributeBean(attributeBeanId, this.eventDispatchOption)
                 } else {
                     log.debug("\tAttribute is already empty")
                 }
@@ -608,10 +590,9 @@ class InsightManagerForScriptrunner {
 
 
                 log.trace("\t\tCreated Attribute Bean:" + attributeBean.collect { ["Attribute ID: " + it.objectTypeAttributeId, "Values:" + it.objectAttributeValueBeans.value] }.flatten())
-                log.trace("\t" * 3 + "Input Attribute Name was:" + attributeValue.key + ", Input Value was:" + attributeValue.value )
+                log.trace("\t" * 3 + "Input Attribute Name was:" + attributeValue.key + ", Input Value was:" + attributeValue.value)
 
                 if ([attributeValue.value].flatten().size() != attributeBean.objectAttributeValueBeans.size()) {
-
                     throw new InputMismatchException("Failed to create ObjectAttributeBean based on input data:" + attributeValue)
                 }
 
@@ -640,8 +621,6 @@ class InsightManagerForScriptrunner {
             log.error("Error creating object:" + all.message)
             logRelevantStacktrace(all.stackTrace)
             dropPrivilage("\t")
-
-
 
         }
 
@@ -811,7 +790,7 @@ class InsightManagerForScriptrunner {
                 objectTypeAttributeBean = objectTypeAttributeFacade.loadObjectTypeAttributeBean(attribute as Integer)
             } else {
 
-                objectTypeAttributeBean = objectTypeAttributeFacade.loadObjectTypeAttribute(ObjectTypeId, attribute as String)
+                objectTypeAttributeBean = objectTypeAttributeFacade.loadObjectTypeAttributeBean(ObjectTypeId, attribute as String)
             }
 
 
@@ -826,10 +805,8 @@ class InsightManagerForScriptrunner {
         } catch (all) {
             log.error("\tError getting object attribute:" + all.message)
             logRelevantStacktrace(all.stackTrace)
-            throw  all
 
         }
-
 
         return objectTypeAttributeBean
 
@@ -907,7 +884,7 @@ class InsightManagerForScriptrunner {
     /**
      * Get multiple attribute values from object
      * @param Object id, Objectbean, key
-     * @param Attributes name of attributes (string) or id (integer), if left empty all attributes with values will be returned.
+     * @param Attributes name of attributes (string) or id (integer), if left empty all attributes will be returned.
      * @return A map with where the key is the name of the attribute (not id) and the value is an array of values.
      *          The values are generally of the type they are in Insight, so referenced objects are returned as objects.
      *          If the attribute is empty the key will still be in in the map but with an empty array.
@@ -923,7 +900,7 @@ class InsightManagerForScriptrunner {
         ArrayList<ObjectAttributeBean> attributeBeans = object.getObjectAttributeBeans()
 
         if (Attributes != []) {
-            log.info("For object \"$object\", getting attribute values:" + Attributes)
+            log.info("For object $object, getting attribute values:" + Attributes)
             List<ObjectTypeAttributeBean> filteredObjectTypeAttributeBeans = []
             Attributes.each {
                 filteredObjectTypeAttributeBeans.add(getObjectTypeAttributeBean(it, object.objectTypeId))

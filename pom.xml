@@ -24,7 +24,7 @@
     <properties>
         <!-- Set your JIRA version here -->
         <jira.version>8.6.0</jira.version>
-        <insight.version>8.4.2</insight.version>
+        <insight.version>8.3.0</insight.version>
 
     </properties>
 

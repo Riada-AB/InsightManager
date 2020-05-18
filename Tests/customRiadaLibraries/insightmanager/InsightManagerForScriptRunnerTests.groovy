@@ -31,7 +31,7 @@ import groovy.json.internal.LazyMap
 //Good to have when updating IM, but never run on production environments.
 boolean clearCodeCache = true
 if (clearCodeCache) {
-    String host = "http://jiratest-im84.stuxnet.se"
+    String host = "http://jiratest-im83.stuxnet.se"
     String restUser = "anders"
     String restPw = restUser
     HttpURLConnection cacheClearConnection = new URL(host + "/rest/scriptrunner/latest/canned/com.onresolve.scriptrunner.canned.jira.admin.JiraClearCaches").openConnection() as HttpURLConnection
@@ -81,7 +81,7 @@ int validSchemeId = 1
 //These are attributes and values that are valid for validObjectTypeName
 ArrayList<Map> validAttributeValues = [
         [
-                "Name"                            : "A test object with named attributes",
+                "name"                            : "A test object with named attributes",
                 "A Date Attribute"                : new Date(),
                 "A Date Time Attribute"           : DateTime.now(),
                 "A Local Date Time Attribute"     : LocalDateTime.now(),
@@ -98,17 +98,14 @@ ArrayList<Map> validAttributeValues = [
                 "A Username attribute"            : "anders",
                 "A user key attribute"            : "JIRAUSER10000",
                 "An ApplicationUser Attribute"    : im.userManager.getUserByName("jsduser"),
-               // "Multiple User attribute"         : [im.userManager.getUserByName("jsduser")]
                 "Multiple User attribute"         : ["anders", im.userManager.getUserByName("jsduser")]
-                //TODO look over multi user attribute problem
 
         ],
         [
                 2 : "A test object with numeric attributes",
                 5 : new Date(),
                 6 : DateTime.now(),
-                95: [im.userManager.getUserByName("jsduser")]
-               // 95: ["anders", im.userManager.getUserByName("jsduser")]
+                95: ["anders", im.userManager.getUserByName("jsduser")]
 
         ]
 ]
@@ -124,20 +121,7 @@ String globalWarningString = ""
 Logger log = Logger.getLogger("im.scriptrunner.test") //To filter logs in a linux server: tail -f /var/atlassian/application-data/jira/log/atlassian-jira.log | sed -n -e 's/^.*scriptrunner.test]//p'
 log.setLevel(Level.ALL)
 
-/*
-ApplicationUser testUser = im.userManager.getUserByName("jsduser")
-MutableObjectBean testObject = im.getObjectBean("TS-330") as MutableObjectBean
 
-log.debug("[\"anders\", testUser.getKey()]" + ["anders", testUser.getKey()])
-
-ObjectTypeAttributeBean objectTypeAttributeBean = im.getObjectTypeAttributeBean( "Multiple User attribute", testObject.objectTypeId)
-MutableObjectAttributeBean attributeBean = im.objectAttributeBeanFactory.createObjectAttributeBeanForObject(testObject, objectTypeAttributeBean, *["anders", testUser.getKey()])
-MutableObjectAttributeBean attributeBean2 = im.objectAttributeBeanFactory.createObjectAttributeBeanForObject(testObject, objectTypeAttributeBean, *["anders", "JIRAUSER10200"])
-log.debug("attributeValue.value:" + attributeBean.objectAttributeValueBeans)
-log.debug("attributeValue2.value:" + attributeBean2.objectAttributeValueBeans)
-
-return
-*/
 
 if (testImports) {
 
@@ -495,7 +479,7 @@ try {
         updatedAttributes.each { log.trace("\t" * 4 + it) }
     }
 
-    log.debug("updatedAttributes.values().isEmpty():" + updatedAttributes.values().every {it.isEmpty()})
+
     assert updatedAttributes.values().every {it.isEmpty()}: "An attribute ($updatedAttributes) was updated even though currently in read only mode"
 
     log.info("\tSuccess!")
