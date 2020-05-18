@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="RemoteRepositoriesConfiguration">
+    <remote-repository>
+      <option name="id" value="maven-snapshots" />
+      <option name="name" value="Sonatype OSS Snapshots" />
+      <option name="url" value="https://oss.sonatype.org/content/repositories/snapshots/" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="jCenter" />
+      <option name="name" value="jCenter" />
+      <option name="url" value="http://jcenter.bintray.com" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="central" />
+      <option name="name" value="Central Repository" />
+      <option name="url" value="https://repo.maven.apache.org/maven2" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="central" />
+      <option name="name" value="Maven Central repository" />
+      <option name="url" value="https://repo1.maven.org/maven2" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="atlassian-public" />
+      <option name="name" value="atlassian-public" />
+      <option name="url" value="https://packages.atlassian.com/content/groups/public/" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="riada-repository" />
+      <option name="name" value="riada-repository" />
+      <option name="url" value="https://repo.riada.io/repository/riada-repo/" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="jboss.community" />
+      <option name="name" value="JBoss Community repository" />
+      <option name="url" value="https://repository.jboss.org/nexus/content/repositories/public/" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="adaptavist-external" />
+      <option name="name" value="adaptavist-external" />
+      <option name="url" value="https://nexus.adaptavist.com/content/repositories/external" />
+    </remote-repository>
+  </component>
+</project>
