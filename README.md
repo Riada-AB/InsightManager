@@ -96,4 +96,6 @@ im.renderObjectToHtml(serverObject)
 
 ## How do I get started?
 
-Have a look at the [setup guide](Documentation/Setup.md) to get IM setup in your environment and then dig in to the [documentation](Documentation/MethodOverview.md).
+
+Have a look at the [setup guide](https://github.com/Riada-AB/InsightManager/wiki/Setup-and-Upgrade) to get IM setup in your environment and then dig in to the [documentation](https://github.com/Riada-AB/InsightManager/wiki/Method-Overview).
+
