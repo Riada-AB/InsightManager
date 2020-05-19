@@ -740,19 +740,19 @@ class InsightManagerForScriptrunner {
             log.trace("\tObjectbean:" + objectBean)
 
 
-            attributeValueMap.each { Map ->
+            attributeValueMap.each { map ->
 
-                MutableObjectTypeAttributeBean attributeBean = getObjectTypeAttributeBean(Map.key, objectBean.objectTypeId).createMutable()
+                MutableObjectTypeAttributeBean attributeBean = getObjectTypeAttributeBean(map.key, objectBean.objectTypeId).createMutable()
 
                 MutableObjectAttributeBean newAttributeBean
-                if (Map.value instanceof ArrayList) {
+                if (map.value instanceof ArrayList) {
                     //make sure everything is a string
-                    Map.value = Map.value.collect { it.toString() }
+                    map.value = map.value.collect { it.toString() }
 
-                    newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *Map.value)
+                    newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *map.value)
 
                 } else {
-                    newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, Map.value as String)
+                    newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, map.value as String)
                 }
 
                 ObjectAttributeBean oldAttributeBean = objectFacade.loadObjectAttributeBean(objectBean.id, attributeBean.id)
@@ -775,7 +775,7 @@ class InsightManagerForScriptrunner {
 
                     } else {
                         log.error("Failed to update attribute")
-                        throw new RuntimeException("Failed to update Object (${objectBean.objectKey}) attribute: ${Map.key} with value: ${Map.value}")
+                        throw new RuntimeException("Failed to update Object (${objectBean.objectKey}) attribute: ${map.key} with value: ${map.value}")
 
                     }
                 }
