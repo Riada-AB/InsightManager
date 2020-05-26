@@ -13,7 +13,7 @@ InsightManager is provided “as is” without warranty of any kind, it is to be
 
 
 
-## Some quick examples to grab you attention
+## Some quick examples to grab your attention
 ```Groovy
 import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner
 InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
