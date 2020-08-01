@@ -19,7 +19,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
-import groovy.json.internal.LazyMap
+import org.apache.groovy.json.internal.LazyMap
 
 @WithPlugin("com.riadalabs.jira.plugins.insight")
 

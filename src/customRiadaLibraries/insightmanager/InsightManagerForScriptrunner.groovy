@@ -1092,6 +1092,43 @@ class InsightManagerForScriptrunner {
     }
 
 
+    ArrayList<File>getObjectAttachments(def object) {
+
+        log.info("Will get attachments for object:" + object)
+        ArrayList<File> objectAttachments = []
+        ObjectBean objectBean
+        escalatePrivilage("\t")
+
+        try {
+
+            objectBean = getObjectBean(object)
+            assert objectBean != null : "Could not find objectbean based on $object"
+            ArrayList<AttachmentBean> attachmentBeans = objectFacade.findAttachmentBeans(objectBean.id)
+            log.debug("\tFound ${attachmentBeans.size()} attachment beans for the object")
+
+            attachmentBeans.each {
+                log.debug("\t"*2 + it.getNameInFileSystem())
+                log.debug("\t"*2 + it.getFilename())
+
+        }
+
+
+
+        }catch(all) {
+            log.error("There was an error trying to retrieve attachments for object:" + object)
+            log.error(all.message)
+
+        }
+
+
+
+        dropPrivilage("\t")
+
+        return objectAttachments
+
+    }
+
+
     void logRelevantStacktrace(StackTraceElement[] stacktrace) {
 
         stacktrace.each {
