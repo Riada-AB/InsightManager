@@ -24,17 +24,16 @@ import java.time.LocalDateTime
 
 /**
  * Breaking changes in 8.4
-    *  getObjectAttributeValues() doesnt return empty values
-        *                                                                     <=8.3                           >=8.4
-        * im.getObjectAttributeValues("KEY-123", "An Empty Attribute")        []                              []
-        * im.getObjectAttributeValues("KEY-123", ["An Empty Attribute"])      [A Empty Attribute:[]]          [:]
-        * im.getObjectAttributeValues("KEY-123", [])                          [...,A Empty Attribute:[],..]   [..](A map containing all attributes with values)
+ *  getObjectAttributeValues() doesnt return empty values
+ *                                                                     <=8.3                           >=8.4
+ * im.getObjectAttributeValues("KEY-123", "An Empty Attribute")        []                              []
+ * im.getObjectAttributeValues("KEY-123", ["An Empty Attribute"])      [A Empty Attribute:[]]          [:]
+ * im.getObjectAttributeValues("KEY-123", [])                          [...,A Empty Attribute:[],..]   [..](A map containing all attributes with values)
 
-    * createObject, updateObjectAttribute, updateObjectAttributes no longer accepts username as input when updating a user attribute,
-      instead user key or an ApplicationUser object is accepted.
+ * createObject, updateObjectAttribute, updateObjectAttributes no longer accepts username as input when updating a user attribute,
+ instead user key or an ApplicationUser object is accepted.
  *
  */
-
 
 
 @WithPlugin("com.riadalabs.jira.plugins.insight")
@@ -315,7 +314,6 @@ class InsightManagerForScriptrunner {
         }
 
 
-
         log.debug("\tDetermined import to be: ${importSourceObject.name} (${importSourceObject.id})")
         ProgressId progressId = ProgressId.create(importSourceObject.id.toString(), "imports")
 
@@ -495,7 +493,7 @@ class InsightManagerForScriptrunner {
      */
     ObjectBean createObject(int schemeId, String objectTypeName, Map AttributeValues) {
 
-        int objectTypeId = objectTypeFacade.findObjectTypeBeans(schemeId).find { it.name == objectTypeName }.id
+        int objectTypeId = objectTypeFacade.findObjectTypeBeansFlat(schemeId).find { it.name == objectTypeName }.id
 
         return createObject(objectTypeId, AttributeValues)
     }
@@ -605,7 +603,7 @@ class InsightManagerForScriptrunner {
 
 
                 log.trace("\t\tCreated Attribute Bean:" + attributeBean.collect { ["Attribute ID: " + it.objectTypeAttributeId, "Values:" + it.objectAttributeValueBeans.value] }.flatten())
-                log.trace("\t" * 3 + "Input Attribute Name was:" + attributeValue.key + ", Input Value was:" + attributeValue.value )
+                log.trace("\t" * 3 + "Input Attribute Name was:" + attributeValue.key + ", Input Value was:" + attributeValue.value)
 
                 if ([attributeValue.value].flatten().size() != attributeBean.objectAttributeValueBeans.size()) {
 
@@ -637,7 +635,6 @@ class InsightManagerForScriptrunner {
             log.error("Error creating object:" + all.message)
             logRelevantStacktrace(all.stackTrace)
             dropPrivilage("\t")
-
 
 
         }
@@ -823,7 +820,7 @@ class InsightManagerForScriptrunner {
         } catch (all) {
             log.error("\tError getting object attribute:" + all.message)
             logRelevantStacktrace(all.stackTrace)
-            throw  all
+            throw all
 
         }
 
@@ -1055,7 +1052,7 @@ class InsightManagerForScriptrunner {
             dropPrivilage("\t")
             return false
         } else {
-            objectFacade.deleteObjectBean(objectBean.id,this.eventDispatchOption)
+            objectFacade.deleteObjectBean(objectBean.id, this.eventDispatchOption)
             if (objectFacade.loadObjectBean(objectBean.id) == null) {
                 log.info("\tDeleted object $objectBean")
                 dropPrivilage("\t")
