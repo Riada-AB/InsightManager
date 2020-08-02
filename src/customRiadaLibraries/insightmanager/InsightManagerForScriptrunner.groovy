@@ -19,7 +19,9 @@ import com.riadalabs.jira.plugins.insight.services.progress.model.Progress
 import com.riadalabs.jira.plugins.insight.services.progress.model.ProgressId
 import org.apache.log4j.Logger
 import org.joda.time.DateTime
+import groovy.transform.InheritConstructors
 
+import java.nio.file.Files
 import java.text.DateFormat
 import java.time.LocalDateTime
 
@@ -1100,7 +1102,13 @@ class InsightManagerForScriptrunner {
     }
 
 
-    Map<String, File> getObjectAttachments(def object) {
+    /**
+     * This method will retrieve all attachments belonging to an object.
+     * @param object key, id or objectbean
+     * @return Map where the key is the original file name and the value is the corresponding File object<br>
+     * <b>Note</b> that the File object will have a different file name than the original file name.
+     */
+    Map<String, File> getAllObjectAttachmentBeans(def object) {
 
         log.info("Will get attachments for object:" + object)
         Map<String, File> objectAttachments = [:]
@@ -1115,7 +1123,7 @@ class InsightManagerForScriptrunner {
             log.debug("\tFound ${attachmentBeans.size()} attachment beans for the object")
 
             attachmentBeans.each {
-                log.debug("\t" * 2 + it.getFilename() + " (${it.getNameInFileSystem()})")
+                log.debug("\t" * 2 + it.getFilename() + " (${it.getNameInFileSystem()}) " + it.mimeType)
                 String expectedPath = jiraDataPath + "/attachments/insight/object/${objectBean.id}/" + it.getNameInFileSystem()
 
                 log.trace("\t"*3 + "Expect file to be located here:" + expectedPath)
@@ -1141,6 +1149,81 @@ class InsightManagerForScriptrunner {
         return objectAttachments
 
     }
+
+    AttachmentBean addObjectAttachment(def object , File file, String attachmentComment = "", boolean deleteSourceFile = false) {
+
+        log.info("Will add attachment ${file.name} to object:" + object)
+
+        ObjectBean objectBean
+        escalatePrivilage("\t")
+        File sourceFile
+
+        try {
+            objectBean = getObjectBean(object)
+            assert objectBean != null: "Could not find objectbean based on $object"
+
+            if (deleteSourceFile) {
+                sourceFile = file
+            }else {
+                sourceFile = new File(file.path + "_temp")
+                Files.copy(file.toPath(), sourceFile.toPath() )
+            }
+
+            AttachmentBean attachmentBean = objectFacade.addAttachmentBean(objectBean.id, sourceFile, file.name, Files.probeContentType(sourceFile.toPath()), attachmentComment)
+
+            assert attachmentBean != null && attachmentBean.nameInFileSystem != null
+            log.debug("\tThe attachment was successfully stored and given the name:" + attachmentBean.nameInFileSystem)
+            return attachmentBean
+
+        }catch(all) {
+            log.error("There was an error trying add attachment ${sourceFile.name} to object:" + object)
+            log.error(all.message)
+            return  null
+        }
+
+
+    }
+
+    boolean deleteObjectAttachment(def object, def attachment) {
+
+        log.info("Will delete attachment ($attachment) from object $object")
+        int attachmentId = 0
+        ObjectBean objectBean = getObjectBean(object)
+
+
+        if (attachment instanceof Integer || attachment instanceof Long ) {
+            attachmentId = attachment
+        }else if(attachment instanceof  AttachmentBean) {
+            attachmentId = attachment.id
+        }else if (attachment instanceof String) {
+
+            attachmentId = objectFacade.findAttachmentBeans(objectBean.id).find {it.filename == attachment}?.id
+        }
+
+
+        if ( attachmentId == 0) {
+            throw new InputMismatchException("Could not determine attachment based on $attachment")
+        }
+
+        log.debug("\tDetermined objectKey to be:" + objectBean.objectKey)
+        log.debug("\tDetermined AttachmentBean ID to be:" + attachmentId)
+
+        try {
+
+            AttachmentBean deletedBean = objectFacade.deleteAttachmentBean(attachmentId)
+
+            log.info("\t" + deletedBean.filename + " was deleted")
+            return true
+
+        }catch(all) {
+            log.error("There was an error trying to delete attachment ${attachment} from object:" + object)
+            log.error(all.message)
+            return  null
+        }
+
+    }
+
+
 
 
     void logRelevantStacktrace(StackTraceElement[] stacktrace) {

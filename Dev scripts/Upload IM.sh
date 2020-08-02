@@ -1,2 +1,2 @@
 #!/bin/bash
-groovy "Upload IM.groovy"
+groovy "Dev scripts/Upload IM.groovy"
