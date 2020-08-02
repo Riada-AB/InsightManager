@@ -1,6 +1,10 @@
 import groovy.json.JsonBuilder
+import groovy.json.JsonSlurper
+import org.apache.groovy.json.internal.LazyMap
 
-
+/**
+ * This is a script intended for developers, it's a bit of a dirty hack to upload IM and clear Class cashes in JIRA by using private Scriptrunner REST APIs
+ */
 
 String hostURI  = "http://jiratest-im84.stuxnet.se"
 String restUser = "anders"
@@ -23,29 +27,23 @@ void uploadIm(String hostURI, String restUser, String restPw, String sourceFileP
 
     println("Path:" + System.getProperty("user.dir"))
 
-    HttpURLConnection cacheClearConnection = new URL(hostURI + "/rest/scriptrunner/latest/idea/file?filePath=${URLEncoder.encode(destFileName, "UTF-8")}&rootPath=${ URLEncoder.encode(jiraHomePath + "scripts", "UTF-8")}").openConnection() as HttpURLConnection
+    HttpURLConnection imUploadConnection = new URL(hostURI + "/rest/scriptrunner/latest/idea/file?filePath=${URLEncoder.encode(destFileName, "UTF-8")}&rootPath=${ URLEncoder.encode(jiraHomePath + "scripts", "UTF-8")}").openConnection() as HttpURLConnection
 
 
     String auth = restUser + ":" + restPw
     auth = "Basic " + auth.bytes.encodeBase64().toString()
-    cacheClearConnection.setRequestProperty("Authorization", auth)
-    cacheClearConnection.setDoOutput(true)
-    cacheClearConnection.setRequestMethod("PUT")
-    cacheClearConnection.setRequestProperty("Content-Type", "application/octet-stream")
-    cacheClearConnection.setRequestProperty("Accept", "*/*")
+    imUploadConnection.setRequestProperty("Authorization", auth)
+    imUploadConnection.setDoOutput(true)
+    imUploadConnection.setRequestMethod("PUT")
+    imUploadConnection.setRequestProperty("Content-Type", "application/octet-stream")
+    imUploadConnection.setRequestProperty("Accept", "*/*")
     OutputStreamWriter out = new OutputStreamWriter(
-            cacheClearConnection.getOutputStream());
+            imUploadConnection.getOutputStream());
     out.write(sourceFile.text.bytes.encodeBase64());
     out.close();
 
 
-
-
-
-    //def rawReturn = new JsonSlurper().parse(cacheClearConnection.getInputStream())
-
-    println("Cache clear output:" + cacheClearConnection.getInputStream())
-
+    println("IM upload HTTP response code:" + imUploadConnection.responseCode)
 
 
 
@@ -65,8 +63,10 @@ void clearCodeCache(String hostURI, String restUser, String restPw) {
     byte[] jsonByte = new JsonBuilder(["FIELD_WHICH_CACHE": "gcl", "canned-script": "com.onresolve.scriptrunner.canned.jira.admin.JiraClearCaches"]).toPrettyString().getBytes("UTF-8")
     cacheClearConnection.outputStream.write(jsonByte, 0, jsonByte.length)
 
-    println("Cache clear output:" + cacheClearConnection.getInputStream())
 
+    LazyMap rawReturn = new JsonSlurper().parse(cacheClearConnection.getInputStream())
+
+    println("Cache clear output:" + rawReturn.output)
 
 }
 

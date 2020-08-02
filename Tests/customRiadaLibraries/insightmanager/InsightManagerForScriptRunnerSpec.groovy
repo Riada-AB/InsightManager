@@ -1,5 +1,7 @@
 package customRiadaLibraries.insightmanager
 
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.config.util.JiraHome
 import com.onresolve.scriptrunner.runner.customisers.WithPlugin
 import com.riadalabs.jira.plugins.insight.services.model.AttachmentBean
 import com.riadalabs.jira.plugins.insight.services.model.ObjectBean
@@ -9,6 +11,20 @@ import org.junit.runner.JUnitCore
 import org.junit.runner.Result
 import spock.lang.Specification
 import org.junit.runner.Request
+import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner
+import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner.SimplifiedAttachmentBean
+
+/**
+ * If script fails due to "unable to resolve class customRiadaLibraries.insightmanager.InsightManagerForScriptrunner.SimplifiedAttachmentBean"
+ *  First run this in the SR console:
+
+ import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner
+
+ customRiadaLibraries.insightmanager.InsightManagerForScriptrunner.SimplifiedAttachmentBean simplifiedAttachmentBean
+
+ log.warn("hello")
+ */
+
 
 @WithPlugin("com.riadalabs.jira.plugins.insight")
 
@@ -36,45 +52,24 @@ log.info("Was successful:" + spockResult.wasSuccessful())
 class InsightManagerForScriptRunnerSpecifications extends Specification {
 
     Logger log = Logger.getLogger(this.class)
+    String jiraDataPath = ComponentAccessor.getComponentOfType(JiraHome).getDataDirectory().path
 
 
     def setup() {
 
         log.setLevel(Level.ALL)
-        log.debug("SETUP")
 
-
-    }
-
-
-    def "Retrieve object attachments"() {
-
-        setup:
-
-        InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
-        im.log.setLevel(Level.WARN)
-        ObjectBean testObject
-        Map<String, File> attachments
-
-
-        when:
-        testObject = im.getObjectBean("TAS-6590")
-        attachments = im.getAllObjectAttachmentBeans(testObject)
-
-
-        then:
-        attachments.size() > 0
-        attachments.findAll { !it.value instanceof File }.isEmpty()
-        attachments.every { it.value.canRead() }
-        attachments.every { it.value.bytes.size() > 0 }
 
 
     }
 
-    def 'Test attachment operations'(String sourceFilePath) {
+
+
+
+    def 'Test attachment operations'(String sourceFilePath, boolean testDeletionOfSource, String attachmentComment) {
 
         setup:
-        String destinationPath = System.getProperty("java.io.tmpdir") +"/" + this.class.simpleName
+        String destinationPath = System.getProperty("java.io.tmpdir") + "/" + this.class.simpleName
         log.info("Testing attachment operations")
         log.debug("\tUsing sourceFile:" + sourceFilePath)
         log.debug("\tFile will be temporarily placed here:" + destinationPath)
@@ -84,43 +79,70 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
         im.log.setLevel(Level.WARN)
         ObjectBean testObject = im.getObjectBean("TAS-6590")
 
-        when:
-        log.debug("\tTesting attaching file to object")
+        String expectedAttachmentPath = jiraDataPath + "/attachments/insight/object/${testObject.id}/"
+
         log.debug("\tDownloading source file")
-        File testFile = downloadFile(sourceFilePath,  destinationPath)
+        File testFile = downloadFile(sourceFilePath, destinationPath)
+        String testFileHash = testFile.getBytes().sha256()
         log.debug("\tDownload complete: ${testFile.path}, size: " + testFile.size())
 
-        log.debug("\tAttaching file to $testObject")
+        when:
+        log.debug("\tTesting attaching file to $testObject")
 
-        AttachmentBean newAttachmentBean = im.addObjectAttachment(testObject, testFile, "", false)
-
-
+        SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(testObject, testFile, attachmentComment, testDeletionOfSource)
+        expectedAttachmentPath += newAttachmentBean.attachmentBean.nameInFileSystem
 
 
         then:
         newAttachmentBean != null
+        newAttachmentBean.isValid()
+        assert new File(expectedAttachmentPath).canRead(): "The attached file wasn't found at the expected path:" + expectedAttachmentPath
+
+        if (testDeletionOfSource) {
+            assert !testFile.canRead(): "Source file wasn't deleted by IM when expected"
+        } else {
+            assert testFile.canRead(): "Source file was unintentionally deleted by IM"
+        }
+
         log.trace("\t\tA new attachmentBean was created")
 
         when:
         log.debug("\tTesting getObjectAttachments() to find and verify the new attachment")
-        Map<String, File> objectAttachments = im.getAllObjectAttachmentBeans(testObject)
-        File retrievedAttachmentFile = im.getAllObjectAttachmentBeans(testObject).find {it.value.name == testFile.name}.value
+        ArrayList<SimplifiedAttachmentBean> objectAttachments = im.getAllObjectAttachmentBeans(testObject)
+        SimplifiedAttachmentBean retrievedSimplifiedAttachment = objectAttachments.find { it.id == newAttachmentBean.id }
 
         then:
-        assert retrievedAttachmentFile.name == testFile.name : "The name of the test file and the retrieved attachment file doesn't match"
-        assert retrievedAttachmentFile.getBytes().sha256() == testFile.getBytes().sha256() : "The hash of the test file and the retrieved attachment file doesn't match"
+        assert retrievedSimplifiedAttachment.originalFileName == testFile.name: "The name of the test file and the retrieved attachment file doesn't match"
+        assert retrievedSimplifiedAttachment.attachmentFile.getBytes().sha256() == testFileHash: "The hash of the test file and the retrieved attachment file doesn't match"
+        assert newAttachmentBean.attachmentBean.comment == retrievedSimplifiedAttachment.attachmentBean.comment : "The comment of the SimplifiedAttachmentBean differs"
         log.trace("\t\tThe new attachment was successfully verified")
 
+        when:
+        log.debug("\tTesting deleteObjectAttachment() by deleting the new attachment")
+        boolean deletionResult = im.deleteObjectAttachment(newAttachmentBean)
+
+        then:
+        assert deletionResult : "deleteObjectAttachment was unsuccessful and returned false"
+        assert im.objectFacade.loadAttachmentBeanById(newAttachmentBean.id) == null
+        assert !new File(expectedAttachmentPath).canRead(): "The attached file can still be found at the expected path:" + expectedAttachmentPath
+        log.trace("\t\tThe attachment was successfully deleted")
+
         cleanup:
-        log.debug("Deleting test file from filesystem:" + testFile.path)
-        assert testFile.delete() : "Error deleting test file:" + testFile.path
+        if (!testDeletionOfSource) {
+            log.debug("Deleting test file from filesystem:" + testFile.path)
+            assert testFile.delete(): "Error deleting test file:" + testFile.path
+            log.debug("\tThe test file was successfully deleted")
+        }
+
+
 
 
         where:
-        sourceFilePath                                                                                             | _
-        "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"                       | _
-        //"https://www.atlassian.com/dam/jcr:242ae640-3d6a-472d-803d-45d8dcc2a8d2/Atlassian-horizontal-blue-rgb.svg" | _
-        //"https://bitbucket.org/atlassian/jira_docs/downloads/JIRACORESERVER_8.10.pdf"                              | _
+        sourceFilePath                                                                       | testDeletionOfSource | attachmentComment
+        "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" | false                | "no comment"
+        "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" | true                 | "no comment"
+        "https://www.atlassian.com/dam/jcr:242ae640-3d6a-472d-803d-45d8dcc2a8d2/Atlassian-horizontal-blue-rgb.svg" | true | " a comment"
+        "https://bitbucket.org/atlassian/jira_docs/downloads/JIRACORESERVER_8.10.pdf"                              | false | "another commenct"
 
     }
 
