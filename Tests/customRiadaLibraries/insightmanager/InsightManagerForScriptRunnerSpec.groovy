@@ -1,5 +1,6 @@
 package customRiadaLibraries.insightmanager
 
+import com.onresolve.scriptrunner.runner.customisers.WithPlugin
 import com.riadalabs.jira.plugins.insight.services.model.ObjectBean
 import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
@@ -10,6 +11,7 @@ import org.junit.runner.JUnitCore
 import org.junit.runner.Result
 import spock.lang.Specification
 
+@WithPlugin("com.riadalabs.jira.plugins.insight")
 
 
 
@@ -20,9 +22,6 @@ String restPw = restUser
 Logger log = Logger.getLogger("test.report")
 log.setLevel(Level.ALL)
 
-
-
-clearCodeCache(hostURI, restUser, restPw)
 JUnitCore jUnitCore = new JUnitCore()
 //Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecifications.class, "Verify group gets added on first logout"))
 Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecifications)
@@ -41,27 +40,36 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
     Logger log = Logger.getLogger(this.class)
 
 
-
-    /*
     def setup() {
 
-        throw new InputMismatchException("HEEEJ")
         log.setLevel(Level.ALL)
-        //log.warn("Setup")
+        log.debug("SETUP")
 
 
-
-        //clearCodeCache()
-
-
-    }*/
+    }
 
 
     def "Retrieve object attachments"() {
 
         setup:
+
         InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
-        ObjectBean testObject = im.getObjectBean("TAS-6590")
+        im.log.setLevel(Level.ALL)
+        ObjectBean testObject
+        Map<String, File>attachments
+
+
+        when:
+        testObject = im.getObjectBean("TAS-6590")
+        attachments = im.getObjectAttachments(testObject)
+
+
+
+        then:
+        attachments.size() > 0
+        attachments.findAll {!it.value instanceof File}.isEmpty()
+        attachments.every {it.value.canRead()}
+        attachments.every {it.value.bytes.size() > 0}
 
 
 
@@ -77,23 +85,5 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
 }
 
 
-void clearCodeCache(String hostURI, String restUser, String restPw) {
-
-    HttpURLConnection cacheClearConnection = new URL(hostURI + "/rest/scriptrunner/latest/canned/com.onresolve.scriptrunner.canned.jira.admin.JiraClearCaches").openConnection() as HttpURLConnection
-    String auth = restUser + ":" + restPw
-    auth = "Basic " + auth.bytes.encodeBase64().toString()
-    cacheClearConnection.setRequestProperty("Authorization", auth)
-    cacheClearConnection.setDoOutput(true)
-    cacheClearConnection.setRequestMethod("POST")
-    cacheClearConnection.setRequestProperty("Content-Type", "application/json")
-    cacheClearConnection.setRequestProperty("Accept", "application/json")
-    byte[] jsonByte = new JsonBuilder(["FIELD_WHICH_CACHE": "gcl", "canned-script": "com.onresolve.scriptrunner.canned.jira.admin.JiraClearCaches"]).toPrettyString().getBytes("UTF-8")
-    cacheClearConnection.outputStream.write(jsonByte, 0, jsonByte.length)
-    LazyMap rawReturn = new JsonSlurper().parse(cacheClearConnection.getInputStream())
-    log.setLevel(Level.ALL)
-    log.debug("Cache clear outpup:" + rawReturn.output)
-
-
-}
 
 

@@ -1,5 +1,4 @@
-
-
+import groovy.json.JsonBuilder
 
 
 
@@ -11,6 +10,7 @@ String jiraHome = "/var/atlassian/application-data/jiraim84/"
 String destinationFileName = "customRiadaLibraries/insightmanager/InsightManagerForScriptrunner.groovy"
 
 uploadIm(hostURI, restUser, restPw, sourceFile, jiraHome, destinationFileName)
+clearCodeCache(hostURI, restUser, restPw)
 
 void uploadIm(String hostURI, String restUser, String restPw, String sourceFilePath, String jiraHomePath, String destFileName) {
 
@@ -50,3 +50,23 @@ void uploadIm(String hostURI, String restUser, String restPw, String sourceFileP
 
 
 }
+
+
+void clearCodeCache(String hostURI, String restUser, String restPw) {
+
+    HttpURLConnection cacheClearConnection = new URL(hostURI + "/rest/scriptrunner/latest/canned/com.onresolve.scriptrunner.canned.jira.admin.JiraClearCaches").openConnection() as HttpURLConnection
+    String auth = restUser + ":" + restPw
+    auth = "Basic " + auth.bytes.encodeBase64().toString()
+    cacheClearConnection.setRequestProperty("Authorization", auth)
+    cacheClearConnection.setDoOutput(true)
+    cacheClearConnection.setRequestMethod("POST")
+    cacheClearConnection.setRequestProperty("Content-Type", "application/json")
+    cacheClearConnection.setRequestProperty("Accept", "application/json")
+    byte[] jsonByte = new JsonBuilder(["FIELD_WHICH_CACHE": "gcl", "canned-script": "com.onresolve.scriptrunner.canned.jira.admin.JiraClearCaches"]).toPrettyString().getBytes("UTF-8")
+    cacheClearConnection.outputStream.write(jsonByte, 0, jsonByte.length)
+
+    println("Cache clear output:" + cacheClearConnection.getInputStream())
+
+
+}
+

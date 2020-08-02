@@ -2,6 +2,7 @@ package customRiadaLibraries.insightmanager
 
 import com.atlassian.jira.component.ComponentAccessor
 import com.atlassian.jira.config.properties.APKeys
+import com.atlassian.jira.config.util.JiraHome
 import com.atlassian.jira.plugin.PluginVersionStore
 import com.atlassian.jira.security.JiraAuthenticationContext
 import com.atlassian.jira.user.ApplicationUser
@@ -64,6 +65,7 @@ class InsightManagerForScriptrunner {
     public boolean autoEscalate = true//should Insight requests be automatically escalated?
     private boolean currentlyEscalate = false
     String baseUrl
+    String jiraDataPath
     JiraAuthenticationContext authContext
     UserManager userManager
     EventDispatchOption eventDispatchOption
@@ -106,7 +108,13 @@ class InsightManagerForScriptrunner {
         //Atlassian Managers
         authContext = ComponentAccessor.getJiraAuthenticationContext();
         userManager = ComponentAccessor.getUserManager()
+
+
+
+        //Static Paths
         baseUrl = ComponentAccessor.getApplicationProperties().getString(APKeys.JIRA_BASEURL)
+        jiraDataPath = ComponentAccessor.getComponentOfType(JiraHome).getDataDirectory().path
+
 
 
         log = Logger.getLogger(this.class.name)
@@ -1092,37 +1100,43 @@ class InsightManagerForScriptrunner {
     }
 
 
-    ArrayList<File>getObjectAttachments(def object) {
+    Map<String, File> getObjectAttachments(def object) {
 
         log.info("Will get attachments for object:" + object)
-        ArrayList<File> objectAttachments = []
+        Map<String, File> objectAttachments = [:]
         ObjectBean objectBean
         escalatePrivilage("\t")
 
         try {
 
             objectBean = getObjectBean(object)
-            assert objectBean != null : "Could not find objectbean based on $object"
+            assert objectBean != null: "Could not find objectbean based on $object"
             ArrayList<AttachmentBean> attachmentBeans = objectFacade.findAttachmentBeans(objectBean.id)
             log.debug("\tFound ${attachmentBeans.size()} attachment beans for the object")
 
             attachmentBeans.each {
-                log.debug("\t"*2 + it.getNameInFileSystem())
-                log.debug("\t"*2 + it.getFilename())
+                log.debug("\t" * 2 + it.getFilename() + " (${it.getNameInFileSystem()})")
+                String expectedPath = jiraDataPath + "/attachments/insight/object/${objectBean.id}/" + it.getNameInFileSystem()
 
-        }
+                log.trace("\t"*3 + "Expect file to be located here:" + expectedPath)
+
+                File attachmentFile = new File(expectedPath)
+                assert attachmentFile.canRead() : "Cant access attachment file: " + it.getNameInFileSystem()
+                objectAttachments.put(it.getFilename(), attachmentFile)
+
+            }
 
 
-
-        }catch(all) {
+        } catch (all) {
             log.error("There was an error trying to retrieve attachments for object:" + object)
             log.error(all.message)
 
         }
 
 
-
         dropPrivilage("\t")
+
+        log.info("\tSuccessfully retrieved ${objectAttachments.size()} attachments")
 
         return objectAttachments
 
