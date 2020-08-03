@@ -2,6 +2,7 @@ package customRiadaLibraries.insightmanager
 
 import com.atlassian.jira.component.ComponentAccessor
 import com.atlassian.jira.config.properties.APKeys
+import com.atlassian.jira.config.util.JiraHome
 import com.atlassian.jira.plugin.PluginVersionStore
 import com.atlassian.jira.security.JiraAuthenticationContext
 import com.atlassian.jira.user.ApplicationUser
@@ -13,28 +14,27 @@ import com.riadalabs.jira.plugins.insight.services.imports.model.ImportSource
 import com.riadalabs.jira.plugins.insight.services.model.*
 import com.riadalabs.jira.plugins.insight.services.model.factory.ObjectAttributeBeanFactory
 import com.riadalabs.jira.plugins.insight.services.model.factory.ObjectAttributeBeanFactoryImpl
-import com.riadalabs.jira.plugins.insight.services.progress.ProgressCategory
 import com.riadalabs.jira.plugins.insight.services.progress.model.Progress
 import com.riadalabs.jira.plugins.insight.services.progress.model.ProgressId
 import org.apache.log4j.Logger
 import org.joda.time.DateTime
 
+import java.nio.file.Files
 import java.text.DateFormat
 import java.time.LocalDateTime
 
 /**
  * Breaking changes in 8.4
-    *  getObjectAttributeValues() doesnt return empty values
-        *                                                                     <=8.3                           >=8.4
-        * im.getObjectAttributeValues("KEY-123", "An Empty Attribute")        []                              []
-        * im.getObjectAttributeValues("KEY-123", ["An Empty Attribute"])      [A Empty Attribute:[]]          [:]
-        * im.getObjectAttributeValues("KEY-123", [])                          [...,A Empty Attribute:[],..]   [..](A map containing all attributes with values)
+ *  getObjectAttributeValues() doesnt return empty values
+ *                                                                     <=8.3                           >=8.4
+ * im.getObjectAttributeValues("KEY-123", "An Empty Attribute")        []                              []
+ * im.getObjectAttributeValues("KEY-123", ["An Empty Attribute"])      [A Empty Attribute:[]]          [:]
+ * im.getObjectAttributeValues("KEY-123", [])                          [...,A Empty Attribute:[],..]   [..](A map containing all attributes with values)
 
-    * createObject, updateObjectAttribute, updateObjectAttributes no longer accepts username as input when updating a user attribute,
-      instead user key or an ApplicationUser object is accepted.
+ * createObject, updateObjectAttribute, updateObjectAttributes no longer accepts username as input when updating a user attribute,
+ instead user key or an ApplicationUser object is accepted.
  *
  */
-
 
 
 @WithPlugin("com.riadalabs.jira.plugins.insight")
@@ -65,6 +65,7 @@ class InsightManagerForScriptrunner {
     public boolean autoEscalate = true//should Insight requests be automatically escalated?
     private boolean currentlyEscalate = false
     String baseUrl
+    String jiraDataPath
     JiraAuthenticationContext authContext
     UserManager userManager
     EventDispatchOption eventDispatchOption
@@ -107,7 +108,13 @@ class InsightManagerForScriptrunner {
         //Atlassian Managers
         authContext = ComponentAccessor.getJiraAuthenticationContext();
         userManager = ComponentAccessor.getUserManager()
+
+
+
+        //Static Paths
         baseUrl = ComponentAccessor.getApplicationProperties().getString(APKeys.JIRA_BASEURL)
+        jiraDataPath = ComponentAccessor.getComponentOfType(JiraHome).getDataDirectory().path
+
 
 
         log = Logger.getLogger(this.class.name)
@@ -315,7 +322,6 @@ class InsightManagerForScriptrunner {
         }
 
 
-
         log.debug("\tDetermined import to be: ${importSourceObject.name} (${importSourceObject.id})")
         ProgressId progressId = ProgressId.create(importSourceObject.id.toString(), "imports")
 
@@ -495,7 +501,7 @@ class InsightManagerForScriptrunner {
      */
     ObjectBean createObject(int schemeId, String objectTypeName, Map AttributeValues) {
 
-        int objectTypeId = objectTypeFacade.findObjectTypeBeans(schemeId).find { it.name == objectTypeName }.id
+        int objectTypeId = objectTypeFacade.findObjectTypeBeansFlat(schemeId).find { it.name == objectTypeName }.id
 
         return createObject(objectTypeId, AttributeValues)
     }
@@ -605,7 +611,7 @@ class InsightManagerForScriptrunner {
 
 
                 log.trace("\t\tCreated Attribute Bean:" + attributeBean.collect { ["Attribute ID: " + it.objectTypeAttributeId, "Values:" + it.objectAttributeValueBeans.value] }.flatten())
-                log.trace("\t" * 3 + "Input Attribute Name was:" + attributeValue.key + ", Input Value was:" + attributeValue.value )
+                log.trace("\t" * 3 + "Input Attribute Name was:" + attributeValue.key + ", Input Value was:" + attributeValue.value)
 
                 if ([attributeValue.value].flatten().size() != attributeBean.objectAttributeValueBeans.size()) {
 
@@ -637,7 +643,6 @@ class InsightManagerForScriptrunner {
             log.error("Error creating object:" + all.message)
             logRelevantStacktrace(all.stackTrace)
             dropPrivilage("\t")
-
 
 
         }
@@ -823,7 +828,7 @@ class InsightManagerForScriptrunner {
         } catch (all) {
             log.error("\tError getting object attribute:" + all.message)
             logRelevantStacktrace(all.stackTrace)
-            throw  all
+            throw all
 
         }
 
@@ -1055,7 +1060,7 @@ class InsightManagerForScriptrunner {
             dropPrivilage("\t")
             return false
         } else {
-            objectFacade.deleteObjectBean(objectBean.id,this.eventDispatchOption)
+            objectFacade.deleteObjectBean(objectBean.id, this.eventDispatchOption)
             if (objectFacade.loadObjectBean(objectBean.id) == null) {
                 log.info("\tDeleted object $objectBean")
                 dropPrivilage("\t")
@@ -1093,6 +1098,204 @@ class InsightManagerForScriptrunner {
         return historyBeans
 
     }
+
+
+    /**
+     * <h3>This is a class intended to simplify working with Insight AttachmentBeans</h3>
+     * Once instantiated it will give you easy access to the AttachmentBean it self as well as the related File object
+     */
+    public class SimplifiedAttachmentBean {
+
+        public AttachmentBean attachmentBean
+        public Integer id
+        public File attachmentFile
+        public String originalFileName
+
+        SimplifiedAttachmentBean(AttachmentBean attachmentBean) {
+
+            this.attachmentBean = attachmentBean
+            this.id = attachmentBean.id
+            this.attachmentFile = getAttachmentBeanFile(this.attachmentBean)
+            this.originalFileName = attachmentBean.filename
+
+        }
+
+        boolean isValid() {
+
+            return this.attachmentBean != null && this.id > 0 && this.attachmentFile.canRead()
+
+        }
+
+        /**
+         * Compare two SimplifiedAttachmentBean to determine if they are the same
+         * @param other another SimplifiedAttachmentBean
+         * @return true if equals, false if not
+         */
+        @Override
+        boolean equals(def other) {
+            SimplifiedAttachmentBean otherBean
+
+            if (!other instanceof SimplifiedAttachmentBean) {
+                return false
+            }
+
+            otherBean = other as SimplifiedAttachmentBean
+            if (this.attachmentFile.getBytes().sha256() != otherBean.attachmentFile.getBytes().sha256()) {
+                return false
+            }else if (this.attachmentBean.nameInFileSystem != otherBean.attachmentBean.nameInFileSystem) {
+                return false
+            }else {
+                return true
+            }
+
+        }
+
+
+
+    }
+
+    /**
+     * This method will give you the File object of an AttachmentBean
+     * @param attachmentBean The AttachmentBean whose File object you want
+     * @return A File object
+     */
+    File getAttachmentBeanFile(AttachmentBean attachmentBean) {
+        log.trace("\tGetting file for attachmentBean:" + attachmentBean.id)
+        String expectedPath = jiraDataPath + "/attachments/insight/object/${attachmentBean.objectId}/" + attachmentBean.getNameInFileSystem()
+
+        log.trace("\t"*3 + "Expect file to be located here:" + expectedPath)
+
+        File attachmentFile = new File(expectedPath)
+        assert attachmentFile.canRead() : "Cant access attachment file: " + attachmentBean.getNameInFileSystem()
+        return attachmentFile
+    }
+
+    /**
+     * This method will retrieve all SimplifiedAttachmentBeans belonging to an object.
+     * @param object key, id or objectbean
+     * @return ArrayList containing SimplifiedAttachmentBean
+     * <b>Note</b> that the File object will have a different file name than the original file name.
+     */
+    ArrayList<SimplifiedAttachmentBean> getAllObjectAttachmentBeans(def object) {
+
+        log.info("Will get attachments for object:" + object)
+        ArrayList<SimplifiedAttachmentBean> objectAttachments = [:]
+        ObjectBean objectBean
+        escalatePrivilage("\t")
+
+        try {
+
+            objectBean = getObjectBean(object)
+            assert objectBean != null: "Could not find objectbean based on $object"
+            ArrayList<AttachmentBean> attachmentBeans = objectFacade.findAttachmentBeans(objectBean.id)
+            log.debug("\tFound ${attachmentBeans.size()} attachment beans for the object")
+
+            attachmentBeans.each {
+                log.debug("\t" * 2 + it.getFilename() + " (${it.getNameInFileSystem()}) " + it.mimeType)
+                objectAttachments.add(new SimplifiedAttachmentBean(it))
+
+            }
+
+
+        } catch (all) {
+            log.error("There was an error trying to retrieve attachments for object:" + object)
+            log.error(all.message)
+
+        }
+
+
+        dropPrivilage("\t")
+
+        log.info("\tSuccessfully retrieved ${objectAttachments.size()} attachments")
+
+        return objectAttachments
+
+    }
+
+
+    /**
+     * Add an attachment to an object
+     * @param object key, id or objectbean of the object you want to attatch to
+     * @param file the file you´d like to attach
+     * @param attachmentComment (Optional) a comment relevant to the attachment, note that this is not the same as an object comment
+     * @param deleteSourceFile Should the source file be deleted?
+     * @return A SimplifiedAttachmentBean representing the new attachment
+     */
+    SimplifiedAttachmentBean addObjectAttachment(def object , File file, String attachmentComment = "", boolean deleteSourceFile = false) {
+
+        log.info("Will add attachment ${file.name} to object:" + object)
+
+        ObjectBean objectBean
+        escalatePrivilage("\t")
+        File sourceFile
+
+        try {
+            objectBean = getObjectBean(object)
+            assert objectBean != null: "Could not find objectbean based on $object"
+
+            if (deleteSourceFile) {
+                sourceFile = file
+            }else {
+                sourceFile = new File(file.path + "_temp")
+                Files.copy(file.toPath(), sourceFile.toPath() )
+            }
+
+            AttachmentBean attachmentBean = objectFacade.addAttachmentBean(objectBean.id, sourceFile, file.name, Files.probeContentType(sourceFile.toPath()), attachmentComment)
+
+            assert attachmentBean != null && attachmentBean.nameInFileSystem != null
+            log.debug("\tThe attachment was successfully stored and given the name:" + attachmentBean.nameInFileSystem)
+            return new SimplifiedAttachmentBean(attachmentBean)
+
+        }catch(all) {
+            log.error("There was an error trying add attachment ${sourceFile.name} to object:" + object)
+            log.error(all.message)
+            return  null
+        }
+
+
+    }
+
+    /**
+     * Delete an attachment
+     * @param attachment Id, AttachmentBean or SimplifiedAttachmentBean
+     * @return true if successful
+     */
+    boolean deleteObjectAttachment(def attachment) {
+
+        log.info("Will delete attachment ($attachment)")
+        int attachmentId = 0
+
+        if (attachment instanceof Integer || attachment instanceof Long ) {
+            attachmentId = attachment
+        }else if(attachment instanceof  AttachmentBean) {
+            attachmentId = attachment.id
+        }else if (attachment instanceof SimplifiedAttachmentBean) {
+            attachmentId = attachment.id
+        }
+
+
+        if ( attachmentId == 0) {
+            throw new InputMismatchException("Could not determine attachment based on $attachment")
+        }
+
+        log.debug("\tDetermined AttachmentBean ID to be:" + attachmentId)
+
+        try {
+
+            AttachmentBean deletedBean = objectFacade.deleteAttachmentBean(attachmentId)
+
+            log.info("\t" + deletedBean.filename + " was deleted from object ${deletedBean.objectId}")
+            return true
+
+        }catch(all) {
+            log.error("There was an error trying to delete attachment ${attachment}")
+            log.error(all.message)
+            return  null
+        }
+
+    }
+
+
 
 
     void logRelevantStacktrace(StackTraceElement[] stacktrace) {

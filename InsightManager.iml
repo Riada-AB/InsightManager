@@ -4,13 +4,14 @@
     <output url="file://$MODULE_DIR$/target/classes" />
     <output-test url="file://$MODULE_DIR$/target/test-classes" />
     <content url="file://$MODULE_DIR$">
-      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/Tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/Dev scripts" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="Maven: com.riadalabs.jira.plugins:insight:8.4.2" level="project" />
+    <orderEntry type="library" name="Maven: com.riadalabs.jira.plugins:insight:8.6.3" level="project" />
     <orderEntry type="library" name="Maven: javax.annotation:javax.annotation-api:1.3.2" level="project" />
     <orderEntry type="library" name="Maven: com.sun.activation:javax.activation:1.2.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.code.findbugs:jsr305:3.0.2" level="project" />
@@ -42,21 +43,22 @@
     <orderEntry type="library" name="Maven: org.quartz-scheduler:quartz:1.7.3" level="project" />
     <orderEntry type="library" name="Maven: net.lingala.zip4j:zip4j:1.3.3.CUSTOM" level="project" />
     <orderEntry type="library" name="Maven: com.atlassian.labs.plugins:quickreload-jira-support:3.0.0" level="project" />
-    <orderEntry type="library" name="Maven: org.jsoup:jsoup:1.9.2" level="project" />
+    <orderEntry type="library" name="Maven: org.jsoup:jsoup:1.13.1" level="project" />
     <orderEntry type="library" name="Maven: net.jpountz.lz4:lz4:1.3.0" level="project" />
     <orderEntry type="library" name="Maven: batik:batik-all:1.6" level="project" />
     <orderEntry type="library" name="Maven: org.pojava:pojava:3.0.3" level="project" />
     <orderEntry type="library" name="Maven: org.pojava:datetime:3.0.2" level="project" />
     <orderEntry type="library" name="Maven: joda-time:joda-time:2.8" level="project" />
-    <orderEntry type="library" name="Maven: io.riada:insight-core-index:1.0.22" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.immutables:value:2.7.5" level="project" />
-    <orderEntry type="library" name="Maven: io.riada:insight-core-utils:1.0.22" level="project" />
-    <orderEntry type="library" name="Maven: io.riada:insight-core-model:1.0.22" level="project" />
-    <orderEntry type="library" name="Maven: io.riada:insight-core-persistence:1.0.22" level="project" />
-    <orderEntry type="library" name="Maven: io.riada:insight-core-services:1.0.22" level="project" />
+    <orderEntry type="library" name="Maven: org.owasp.encoder:encoder:1.2.2" level="project" />
+    <orderEntry type="library" name="Maven: io.riada:insight-core-index:1.0.37" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.immutables:value:2.8.2" level="project" />
+    <orderEntry type="library" name="Maven: io.riada:insight-core-utils:1.0.37" level="project" />
+    <orderEntry type="library" name="Maven: io.riada:insight-core-model:1.0.37" level="project" />
+    <orderEntry type="library" name="Maven: io.riada:insight-core-persistence:1.0.37" level="project" />
+    <orderEntry type="library" name="Maven: io.riada:insight-core-services:1.0.37" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Maven: javax.activation:javax.activation-api:1.2.0" level="project" />
-    <orderEntry type="library" name="Maven: io.riada:insight-external-services:1.0.22" level="project" />
-    <orderEntry type="library" name="Maven: io.riada:insight-core-iql:1.0.22" level="project" />
+    <orderEntry type="library" name="Maven: io.riada:insight-external-services:1.0.37" level="project" />
+    <orderEntry type="library" name="Maven: io.riada:insight-core-iql:1.0.37" level="project" />
     <orderEntry type="library" name="Maven: org.antlr:antlr4-runtime:4.7.2" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Maven: commons-net:commons-net:3.6" level="project" />
     <orderEntry type="library" name="Maven: com.graphql-java-kickstart:graphql-java-servlet:8.0.0" level="project" />
@@ -66,19 +68,19 @@
     <orderEntry type="library" name="Maven: com.graphql-java:java-dataloader:2.1.1" level="project" />
     <orderEntry type="library" name="Maven: org.reactivestreams:reactive-streams:1.0.2" level="project" />
     <orderEntry type="library" name="Maven: com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.9.9" level="project" />
-    <orderEntry type="library" name="Maven: io.riada:insight-api-graphql:1.0.22" level="project" />
+    <orderEntry type="library" name="Maven: io.riada:insight-api-graphql:1.0.37" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Maven: com.graphql-java-kickstart:graphql-java-tools:5.6.1" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Maven: org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.2.1" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Maven: org.jetbrains.kotlinx:kotlinx-coroutines-reactive:1.2.1" level="project" />
     <orderEntry type="library" scope="RUNTIME" name="Maven: com.esotericsoftware:reflectasm:1.11.9" level="project" />
-    <orderEntry type="library" name="Maven: io.riada.jira.plugins:insight-core-common-ui:2.0.1" level="project" />
-    <orderEntry type="library" name="Maven: io.riada.jira.plugins:insight-core-object-navigator-ui:2.0.1" level="project" />
-    <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-stdlib:1.3.61" level="project" />
-    <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-stdlib-common:1.3.61" level="project" />
+    <orderEntry type="library" name="Maven: io.riada.jira.plugins:insight-core-common-ui:2.0.6" level="project" />
+    <orderEntry type="library" name="Maven: io.riada.jira.plugins:insight-core-object-navigator-ui:2.0.6" level="project" />
+    <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-stdlib:1.3.72" level="project" />
+    <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-stdlib-common:1.3.72" level="project" />
     <orderEntry type="library" name="Maven: org.jetbrains:annotations:13.0" level="project" />
-    <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.3.61" level="project" />
-    <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.3.61" level="project" />
-    <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-reflect:1.3.61" level="project" />
+    <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.3.72" level="project" />
+    <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.3.72" level="project" />
+    <orderEntry type="library" name="Maven: org.jetbrains.kotlin:kotlin-reflect:1.3.72" level="project" />
     <orderEntry type="library" name="Maven: org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.2" level="project" />
     <orderEntry type="library" name="Maven: com.fasterxml.jackson.module:jackson-module-kotlin:2.9.7" level="project" />
     <orderEntry type="library" name="Maven: org.hibernate.validator:hibernate-validator:6.0.13.Final" level="project" />
@@ -88,14 +90,14 @@
     <orderEntry type="library" name="Maven: javax.el:javax.el-api:3.0.0" level="project" />
     <orderEntry type="library" name="Maven: org.glassfish.web:javax.el:2.2.6" level="project" />
     <orderEntry type="library" name="Maven: com.brsanthu:google-analytics-java:2.0.0" level="project" />
-    <orderEntry type="library" name="Maven: io.riada.jira.plugins:insight-core-widget-api:2.0.1" level="project" />
-    <orderEntry type="library" name="Maven: io.riada.jira.plugins:insight-core-widget-report:2.0.1" level="project" />
-    <orderEntry type="library" name="Maven: io.riada.jira.plugins:insight-core-widget-ui:2.0.1" level="project" />
+    <orderEntry type="library" name="Maven: io.riada.jira.plugins:insight-core-widget-api:2.0.6" level="project" />
+    <orderEntry type="library" name="Maven: io.riada.jira.plugins:insight-core-widget-report:2.0.6" level="project" />
+    <orderEntry type="library" name="Maven: io.riada.jira.plugins:insight-core-widget-ui:2.0.6" level="project" />
     <orderEntry type="library" name="Maven: com.cronutils:cron-utils:9.0.1" level="project" />
     <orderEntry type="library" name="Maven: net.redhogs.cronparser:cron-parser-core:3.5" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.sal:sal-api:3.0.3" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.plugins:atlassian-plugins-osgi-bridge:5.3.2" level="project" />
-    <orderEntry type="library" scope="PROVIDED" name="Maven: com.onresolve.jira.groovy:groovyrunner:5.6.13" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.onresolve.jira.groovy:groovyrunner:6.2.0" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira:jira-api:8.6.0" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.annotations:atlassian-annotations:2.1.0" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.ofbiz:entityengine-share:1.4.0" level="project" />
@@ -383,16 +385,77 @@
     <orderEntry type="library" scope="PROVIDED" name="Maven: net.java.dev.jna:jna-platform:4.2.2" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: net.java.dev.jna:jna:4.2.2" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.healthcheck:atlassian-healthcheck-spi:6.0.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira.plugins:jira-greenhopper-plugin:7.7.0-DAILY20171221023017" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira.plugins:jira-greenhopper-api:7.7.0-DAILY20171221023017" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira.plugins:greenhopper-jira-bridge:7.7.0-DAILY20171221023017" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira.plugins:greenhopper-jira70-bridge:7.7.0-DAILY20171221023017" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira.plugins:greenhopper-jira71-bridge:7.7.0-DAILY20171221023017" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira.plugins:greenhopper-rest:7.7.0-DAILY20171221023017" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.json:json:20090211" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: xstream:xstream:1.1.1" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.cache:atlassian-cache-compat:1.1" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.cache:atlassian-cache-compat-common:1.1" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.cache:atlassian-cache-guava-10-compat:1.1" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.cache:atlassian-cache-guava-11-compat:1.1" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.pocketknife:atlassian-pocketknife-dynamic-modules:0.20" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.pocketknife:atlassian-pocketknife-querydsl:0.80" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.mysema.querydsl:querydsl-sql:3.5.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.mysema.querydsl:querydsl-core:3.5.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.apache.servicemix.bundles:org.apache.servicemix.bundles.javax-inject:1_2" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.infradna.tool:bridge-method-annotation:1.13" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.plugin:atlassian-spring-scanner-annotation:1.2.4" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.jooq:joor:0.9.5" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.scheduler:atlassian-scheduler-compat:1.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.beehive:beehive-compat:0.0.4" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira.compat:jira-cross-compatibility-lib-bridge-factory:0.47" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira.compat:jira-cross-compatibility-lib-bridge-api:0.47" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira.compat:jira-cross-compatibility-lib-bridge-63:0.47" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.atlassian.jira.compat:jira-cross-compatibility-lib-bridge-70:0.47" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: org.springframework:spring-beans:4.1.7.RELEASE" level="project" />
-    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-all:2.4.15" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-ant:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.apache.ant:ant:1.9.13" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.apache.ant:ant-junit:1.9.13" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.apache.ant:ant-launcher:1.9.13" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.apache.ant:ant-antlr:1.9.13" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-cli-commons:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: commons-cli:commons-cli:1.4" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-cli-picocli:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: info.picocli:picocli:4.0.1" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-console:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-datetime:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-docgenerator:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: com.thoughtworks.qdox:qdox:1.12.1" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-groovydoc:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-groovysh:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: jline:jline:2.14.6" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-jmx:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-json:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-jsr223:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-macro:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-nio:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-servlet:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-sql:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-swing:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-templates:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-test:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-test-junit5:2.5.11" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.junit.platform:junit-platform-launcher:1.4.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.apiguardian:apiguardian-api:1.0.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.junit.platform:junit-platform-engine:1.4.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.opentest4j:opentest4j:1.1.1" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.junit.platform:junit-platform-commons:1.4.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.junit.jupiter:junit-jupiter-engine:5.4.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.junit.jupiter:junit-jupiter-api:5.4.0" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.codehaus.groovy:groovy-xml:2.5.11" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: org.codehaus.groovy.modules.http-builder:http-builder:0.7.1" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: net.sf.json-lib:json-lib:jdk15:2.3" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: net.sf.ezmorph:ezmorph:1.0.6" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: net.sourceforge.nekohtml:nekohtml:1.9.16" level="project" />
     <orderEntry type="library" scope="TEST" name="Maven: xml-resolver:xml-resolver:1.2" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="Maven: io.github.classgraph:classgraph:4.8.43" level="project" />
-    <orderEntry type="library" scope="TEST" name="Maven: org.spockframework:spock-core:1.1-groovy-2.4" level="project" />
-    <orderEntry type="library" scope="TEST" name="Maven: junit:junit:4.12" level="project" />
-    <orderEntry type="library" scope="TEST" name="Maven: org.hamcrest:hamcrest-core:1.3" level="project" />
+    <orderEntry type="library" scope="TEST" name="Maven: org.spockframework:spock-core:1.2-groovy-2.5" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: junit:junit:4.12" level="project" />
+    <orderEntry type="library" scope="PROVIDED" name="Maven: org.hamcrest:hamcrest-core:1.3" level="project" />
   </component>
 </module>
