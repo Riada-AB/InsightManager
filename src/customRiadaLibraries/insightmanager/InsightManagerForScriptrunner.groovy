@@ -19,7 +19,10 @@ import com.riadalabs.jira.plugins.insight.services.progress.model.ProgressId
 import org.apache.log4j.Logger
 import org.joda.time.DateTime
 
+
+import java.nio.file.FileSystemException
 import java.nio.file.Files
+import java.nio.file.Paths
 import java.text.DateFormat
 import java.time.LocalDateTime
 
@@ -110,11 +113,9 @@ class InsightManagerForScriptrunner {
         userManager = ComponentAccessor.getUserManager()
 
 
-
         //Static Paths
         baseUrl = ComponentAccessor.getApplicationProperties().getString(APKeys.JIRA_BASEURL)
         jiraDataPath = ComponentAccessor.getComponentOfType(JiraHome).getDataDirectory().path
-
 
 
         log = Logger.getLogger(this.class.name)
@@ -1142,14 +1143,13 @@ class InsightManagerForScriptrunner {
             otherBean = other as SimplifiedAttachmentBean
             if (this.attachmentFile.getBytes().sha256() != otherBean.attachmentFile.getBytes().sha256()) {
                 return false
-            }else if (this.attachmentBean.nameInFileSystem != otherBean.attachmentBean.nameInFileSystem) {
+            } else if (this.attachmentBean.nameInFileSystem != otherBean.attachmentBean.nameInFileSystem) {
                 return false
-            }else {
+            } else {
                 return true
             }
 
         }
-
 
 
     }
@@ -1163,10 +1163,10 @@ class InsightManagerForScriptrunner {
         log.trace("\tGetting file for attachmentBean:" + attachmentBean.id)
         String expectedPath = jiraDataPath + "/attachments/insight/object/${attachmentBean.objectId}/" + attachmentBean.getNameInFileSystem()
 
-        log.trace("\t"*3 + "Expect file to be located here:" + expectedPath)
+        log.trace("\t" * 3 + "Expect file to be located here:" + expectedPath)
 
         File attachmentFile = new File(expectedPath)
-        assert attachmentFile.canRead() : "Cant access attachment file: " + attachmentBean.getNameInFileSystem()
+        assert attachmentFile.canRead(): "Cant access attachment file: " + attachmentBean.getNameInFileSystem()
         return attachmentFile
     }
 
@@ -1192,10 +1192,10 @@ class InsightManagerForScriptrunner {
 
             attachmentBeans.each {
                 log.debug("\t" * 2 + it.getFilename() + " (${it.getNameInFileSystem()}) " + it.mimeType)
-                objectAttachments.add(new SimplifiedAttachmentBean(it))
 
             }
 
+            objectAttachments.addAll(attachmentBeans.collect { new SimplifiedAttachmentBean(it) })
 
         } catch (all) {
             log.error("There was an error trying to retrieve attachments for object:" + object)
@@ -1218,10 +1218,10 @@ class InsightManagerForScriptrunner {
      * @param object key, id or objectbean of the object you want to attatch to
      * @param file the file you´d like to attach
      * @param attachmentComment (Optional) a comment relevant to the attachment, note that this is not the same as an object comment
-     * @param deleteSourceFile Should the source file be deleted?
+     * @param deleteSourceFile (Default: False) Should the source file be deleted?
      * @return A SimplifiedAttachmentBean representing the new attachment
      */
-    SimplifiedAttachmentBean addObjectAttachment(def object , File file, String attachmentComment = "", boolean deleteSourceFile = false) {
+    SimplifiedAttachmentBean addObjectAttachment(def object, File file, String attachmentComment = "", boolean deleteSourceFile = false) {
 
         log.info("Will add attachment ${file.name} to object:" + object)
 
@@ -1233,23 +1233,29 @@ class InsightManagerForScriptrunner {
             objectBean = getObjectBean(object)
             assert objectBean != null: "Could not find objectbean based on $object"
 
-            if (deleteSourceFile) {
-                sourceFile = file
-            }else {
-                sourceFile = new File(file.path + "_temp")
-                Files.copy(file.toPath(), sourceFile.toPath() )
+            if (readOnly) {
+                log.info("\tCurrently in readOnly mode, wont add attachment")
+                return null
+            } else {
+                if (deleteSourceFile) {
+                    sourceFile = file
+                } else {
+                    sourceFile = new File(file.path + "_temp")
+                    Files.copy(file.toPath(), sourceFile.toPath())
+                }
+
+                AttachmentBean attachmentBean = objectFacade.addAttachmentBean(objectBean.id, sourceFile, file.name, Files.probeContentType(sourceFile.toPath()), attachmentComment)
+
+                assert attachmentBean != null && attachmentBean.nameInFileSystem != null
+                log.debug("\tThe attachment was successfully stored and given the name:" + attachmentBean.nameInFileSystem)
+                return new SimplifiedAttachmentBean(attachmentBean)
             }
 
-            AttachmentBean attachmentBean = objectFacade.addAttachmentBean(objectBean.id, sourceFile, file.name, Files.probeContentType(sourceFile.toPath()), attachmentComment)
 
-            assert attachmentBean != null && attachmentBean.nameInFileSystem != null
-            log.debug("\tThe attachment was successfully stored and given the name:" + attachmentBean.nameInFileSystem)
-            return new SimplifiedAttachmentBean(attachmentBean)
-
-        }catch(all) {
+        } catch (all) {
             log.error("There was an error trying add attachment ${sourceFile.name} to object:" + object)
             log.error(all.message)
-            return  null
+            return null
         }
 
 
@@ -1265,16 +1271,16 @@ class InsightManagerForScriptrunner {
         log.info("Will delete attachment ($attachment)")
         int attachmentId = 0
 
-        if (attachment instanceof Integer || attachment instanceof Long ) {
+        if (attachment instanceof Integer || attachment instanceof Long) {
             attachmentId = attachment
-        }else if(attachment instanceof  AttachmentBean) {
+        } else if (attachment instanceof AttachmentBean) {
             attachmentId = attachment.id
-        }else if (attachment instanceof SimplifiedAttachmentBean) {
+        } else if (attachment instanceof SimplifiedAttachmentBean) {
             attachmentId = attachment.id
         }
 
 
-        if ( attachmentId == 0) {
+        if (attachmentId == 0) {
             throw new InputMismatchException("Could not determine attachment based on $attachment")
         }
 
@@ -1282,20 +1288,178 @@ class InsightManagerForScriptrunner {
 
         try {
 
-            AttachmentBean deletedBean = objectFacade.deleteAttachmentBean(attachmentId)
+            if (readOnly) {
+                log.info("\tCurrently in readOnly mode, wont delete attachment")
+                return false
+            } else {
+                AttachmentBean deletedBean = objectFacade.deleteAttachmentBean(attachmentId)
 
-            log.info("\t" + deletedBean.filename + " was deleted from object ${deletedBean.objectId}")
-            return true
+                log.info("\t" + deletedBean.filename + " was deleted from object ${deletedBean.objectId}")
+                return true
+            }
 
-        }catch(all) {
+
+        } catch (all) {
             log.error("There was an error trying to delete attachment ${attachment}")
             log.error(all.message)
-            return  null
+            return null
         }
 
     }
 
 
+    ArrayList<File> exportObjectAttachments(def object, String destinationDirectory) {
+
+        ObjectBean objectBean = getObjectBean(object)
+        ArrayList<File> exportedFiles = []
+
+        log.info("Will export all attachments from object:" + objectBean)
+
+        if (destinationDirectory[-1] != "/") {
+            destinationDirectory += "/"
+        }
+
+        destinationDirectory += objectBean.objectKey + "/"
+        if (readOnly) {
+            log.debug("\tCurrently in read only mode or the attachments would be exported to:" + destinationDirectory)
+        } else {
+            new File(destinationDirectory).mkdirs()
+
+            assert new File(destinationDirectory).isDirectory(): "Could not create export directory:" + destinationDirectory
+            log.debug("\tThe attachments will be exported to:" + destinationDirectory)
+
+        }
+
+        ArrayList<SimplifiedAttachmentBean> sourceBeans = getAllObjectAttachmentBeans(objectBean)
+        log.debug("\tObject has ${sourceBeans.size()} attachments")
+        log.debug("\tWill require a total of " + sourceBeans.collect { it.attachmentBean.fileSize }.sum() + "bytes.")
+
+        sourceBeans.each { sourceBean ->
+
+            log.trace("\t" * 2 + "Exporting " + sourceBean.originalFileName + " (ID: ${sourceBean.id})")
+
+            if (readOnly) {
+                log.info("\tCurrently in readOnly mode, wont export attachment")
+            } else {
+                File exportedFile = Files.copy(sourceBean.attachmentFile.toPath(), Paths.get(destinationDirectory + sourceBean.originalFileName)).toFile()
+                assert sourceBean.attachmentFile.size() == exportedFile.size(): "Size mismatch when exporting" + sourceBean.originalFileName + " (ID: ${sourceBean.id})"
+                exportedFiles.add(exportedFile)
+            }
+
+
+        }
+
+
+        return exportedFiles
+
+
+    }
+
+
+    ArrayList<SimplifiedAttachmentBean> importObjectAttachments(String sourceDirectoryPath, String matchingIQL = "\"Old Object key\" = SOURCE_OBJECT_KEY", String attachmentComment = "Imported from SOURCE_OBJECT_KEY", boolean deleteSourceFiles = false, boolean ignoreDuplicates = true) {
+
+        log.info("Will import attachments")
+        log.debug("\tWill use the source directory:" + sourceDirectoryPath)
+
+
+        ArrayList<SimplifiedAttachmentBean> newAttachmentBeans = []
+        File sourceDir = new File(sourceDirectoryPath)
+        ArrayList<File> objectDirs = sourceDir.listFiles()
+
+        objectDirs.each { sourceDirFile ->
+            assert sourceDirFile.isDirectory(): "Source directory may only contain directories, ${sourceDirFile.name} is a file"
+            assert sourceDirFile.name.matches("\\w+-\\d+"): "Source directory may only contain directories named after object keys, ${sourceDirFile.name} doesnt look like an object key"
+        }
+        log.trace("\t" * 2 + "The source directory appears to be valid")
+
+        log.debug("\tWill use the matching IQL:" + matchingIQL)
+        assert matchingIQL.contains("SOURCE_OBJECT_KEY"): "The matchingIQL parameter must contain the string:\"SOURCE_OBJECT_KEY\""
+        log.trace("\t" * 2 + "The matching IQL appears to be valid")
+
+
+        objectDirs.each { objectDir ->
+            String sourceObjectKey = objectDir.name
+            ArrayList<File> sourceFiles = objectDir.listFiles()
+            String destinationIql = matchingIQL.replace("SOURCE_OBJECT_KEY", sourceObjectKey)
+            ObjectBean destinationObject
+            ArrayList<SimplifiedAttachmentBean> destinationObjectPreexistingAttachments
+
+            log.debug("\tWill import attachments from object directory:" + sourceObjectKey)
+            log.debug("\tWill determine destination object with IQL:" + destinationIql)
+
+            ArrayList<ObjectBean> destinationObjects = iqlFacade.findObjects(destinationIql)
+
+            if (destinationObjects.size() != 1) {
+                log.error("Could not determine destination object for attachments from source object: " + sourceObjectKey)
+                log.error("Affected source directory:" + objectDir.path)
+                log.error("Tried to determine destination object with IQL:" + destinationIql)
+                if (destinationObjects.size() == 0) {
+                    log.error("\tNo objects matches the IQL")
+                } else {
+                    log.error("\tMore than one objects matches the IQL:")
+                    destinationObjects.each { log.error("\t" * 3 + it) }
+                }
+                throw new InputMismatchException("Could not determine destination object for attachments from source object: " + sourceObjectKey)
+            }
+            destinationObject = destinationObjects.first()
+            log.debug("\tDetermined destination object to be:" + destinationObject)
+            log.debug("\tWill evaluate " + sourceFiles.size() + " files for import")
+
+
+            if (ignoreDuplicates) {
+                log.debug("\tWill Ignore duplicates")
+                log.trace("\t\tGetting destination objects current attachments")
+                destinationObjectPreexistingAttachments = getAllObjectAttachmentBeans(destinationObject)
+                log.trace("\t" * 3 + "Destination object currently has " + destinationObjectPreexistingAttachments.size() + " attachments")
+                destinationObjectPreexistingAttachments.each { preexistingAttachment ->
+                    boolean duplicateFound = sourceFiles.removeIf { sourceFile ->
+                        sourceFile.name == preexistingAttachment.originalFileName &&
+                                sourceFile.bytes.sha256() == preexistingAttachment.attachmentFile.bytes.sha256()
+                    }
+                    if (duplicateFound) {
+                        log.trace("\t" * 2 + "Will ignore source file that is duplicate of:" + preexistingAttachment.originalFileName)
+                    }
+
+                }
+
+            } else {
+                log.debug("\tWill import duplicates")
+            }
+
+            log.debug("\tStarting import of ${sourceFiles.size()} files")
+            sourceFiles.each { sourceFile ->
+                log.trace("\t" * 2 + "Importing:" + sourceFile.name)
+                if (sourceFile.isDirectory()) {
+                    log.error("Importing directories is not supported:" + sourceFile.path)
+                    throw new FileSystemException("Importing directories is not supported:" + sourceFile.path)
+                }
+
+
+                SimplifiedAttachmentBean newAttachmentBean = addObjectAttachment(destinationObject, sourceFile, attachmentComment.replace("SOURCE_OBJECT_KEY", sourceObjectKey), deleteSourceFiles)
+
+                if (newAttachmentBean == null && readOnly) {
+                    log.info("\tCurrently in readOnly mode, attachment was not imported")
+                    newAttachmentBeans.add(null)
+                } else if (!newAttachmentBean.isValid()) {
+                    log.error("There was an error attaching a file to " + destinationObject)
+                    log.error("\tSource file:" + sourceFile.path)
+                    log.error("\tResulting SimplifiedAttachmentBean:" + newAttachmentBean.properties)
+                    throw new InputMismatchException("There was an error attaching a file to " + destinationObject)
+                } else {
+                    log.trace("\t" * 3 + "Success!")
+                    newAttachmentBeans.add(newAttachmentBean)
+                }
+
+
+            }
+
+            log.debug("\tFinished importing attachments from object directory:" + sourceObjectKey)
+        }
+
+
+        return newAttachmentBeans
+
+    }
 
 
     void logRelevantStacktrace(StackTraceElement[] stacktrace) {
