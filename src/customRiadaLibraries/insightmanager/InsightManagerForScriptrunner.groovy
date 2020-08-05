@@ -1217,11 +1217,12 @@ class InsightManagerForScriptrunner {
      * Add an attachment to an object
      * @param object key, id or objectbean of the object you want to attatch to
      * @param file the file you´d like to attach
+     * @param attachmentName (Optional) Specify a name for the attachment, if non is given the file name will be used
      * @param attachmentComment (Optional) a comment relevant to the attachment, note that this is not the same as an object comment
      * @param deleteSourceFile (Default: False) Should the source file be deleted?
      * @return A SimplifiedAttachmentBean representing the new attachment
      */
-    SimplifiedAttachmentBean addObjectAttachment(def object, File file, String attachmentComment = "", boolean deleteSourceFile = false) {
+    SimplifiedAttachmentBean addObjectAttachment(def object, File file, String attachmentName = "", String attachmentComment = "", boolean deleteSourceFile = false) {
 
         log.info("Will add attachment ${file.name} to object:" + object)
 
@@ -1244,7 +1245,7 @@ class InsightManagerForScriptrunner {
                     Files.copy(file.toPath(), sourceFile.toPath())
                 }
 
-                AttachmentBean attachmentBean = objectFacade.addAttachmentBean(objectBean.id, sourceFile, file.name, Files.probeContentType(sourceFile.toPath()), attachmentComment)
+                AttachmentBean attachmentBean = objectFacade.addAttachmentBean(objectBean.id, sourceFile, attachmentName ?: file.name, Files.probeContentType(sourceFile.toPath()), attachmentComment)
 
                 assert attachmentBean != null && attachmentBean.nameInFileSystem != null
                 log.debug("\tThe attachment was successfully stored and given the name:" + attachmentBean.nameInFileSystem)
@@ -1308,6 +1309,13 @@ class InsightManagerForScriptrunner {
     }
 
 
+    /**
+     * This method will export the attachments of an Object
+     * The exported files will be exported to $destinationDirectory/$objectKey/
+     * @param object key, id or objectbean of the object you want to export from
+     * @param destinationDirectory The output directory, a new child folder with the $objectKey will be created and the files will be put in to that folder
+     * @return An Array with the exported File objects
+     */
     ArrayList<File> exportObjectAttachments(def object, String destinationDirectory) {
 
         ObjectBean objectBean = getObjectBean(object)
@@ -1323,9 +1331,11 @@ class InsightManagerForScriptrunner {
         if (readOnly) {
             log.debug("\tCurrently in read only mode or the attachments would be exported to:" + destinationDirectory)
         } else {
-            new File(destinationDirectory).mkdirs()
+            File outputDir = new File(destinationDirectory)
+            assert !outputDir.exists() : "Output directory already exists:" + outputDir.path
+            outputDir.mkdirs()
 
-            assert new File(destinationDirectory).isDirectory(): "Could not create export directory:" + destinationDirectory
+            assert outputDir.isDirectory(): "Could not create export directory:" + destinationDirectory
             log.debug("\tThe attachments will be exported to:" + destinationDirectory)
 
         }
@@ -1341,7 +1351,18 @@ class InsightManagerForScriptrunner {
             if (readOnly) {
                 log.info("\tCurrently in readOnly mode, wont export attachment")
             } else {
-                File exportedFile = Files.copy(sourceBean.attachmentFile.toPath(), Paths.get(destinationDirectory + sourceBean.originalFileName)).toFile()
+                String exportedFilePath = destinationDirectory + sourceBean.originalFileName
+                long duplicateNr = 1
+
+                if (new File(exportedFilePath).exists()) {
+                    while (new File(exportedFilePath + "_DUPLICATE" + duplicateNr).exists()) {
+                        duplicateNr++
+                    }
+                    exportedFilePath += "_DUPLICATE" + duplicateNr
+                    log.trace("\t" * 3 + "A file with the same name has already been exported, will rename output file:" + sourceBean.originalFileName +  "_DUPLICATE" + duplicateNr)
+                }
+
+                File exportedFile = Files.copy(sourceBean.attachmentFile.toPath(), Paths.get(exportedFilePath)).toFile()
                 assert sourceBean.attachmentFile.size() == exportedFile.size(): "Size mismatch when exporting" + sourceBean.originalFileName + " (ID: ${sourceBean.id})"
                 exportedFiles.add(exportedFile)
             }
@@ -1355,7 +1376,24 @@ class InsightManagerForScriptrunner {
 
     }
 
-
+    /**
+     * This method will import object attachments using the following steps:<br>
+     *  <ol>
+     *  <li>Determine source object key based on sourceDirectoryPath sub folder name<br> </li>
+     *  <li>Determine destination object based on matchingIQL<br> </li>
+     *  <li>For every attachment sourceDirectoryPath/$SOURCE_OBJECT_KEY <br>
+     *        3.1 Determine if the destination object already has the attachment in question and skip it if ignoreDuplicates == true<br>
+     *        3.2 Attach the file to the destination Object and add the attachment comment attachmentComment it != ""<br>
+     *        3.3 If deleteSourceFiles == true, the attached source file will be deleted </li>
+     *  </ol>
+     *
+     * @param sourceDirectoryPath A folder containing one or more folders with the source objects key as name and the files to be attached in those folders. This is the structure given by exportObjectAttachments()
+     * @param matchingIQL This IQL should match a single destination object in all of Insight. It must contain the keyword SOURCE_OBJECT_KEY which will be replaced at runtime by the source objects key (based on the folder name)
+     * @param attachmentComment (Optional) A comment can be added to the attachment if wanted.  SOURCE_OBJECT_KEY may be used in the comment and will be replaced by the source objects key.
+     * @param deleteSourceFiles (Default: False) Should the imported source files be deleted?
+     * @param ignoreDuplicates Should duplicates not be imported? Duplicates are determined based on file name and SHA256 hash.
+     * @return An Array containing the new SimplifiedAttachmentBeans
+     */
     ArrayList<SimplifiedAttachmentBean> importObjectAttachments(String sourceDirectoryPath, String matchingIQL = "\"Old Object key\" = SOURCE_OBJECT_KEY", String attachmentComment = "Imported from SOURCE_OBJECT_KEY", boolean deleteSourceFiles = false, boolean ignoreDuplicates = true) {
 
         log.info("Will import attachments")
@@ -1435,7 +1473,7 @@ class InsightManagerForScriptrunner {
                 }
 
 
-                SimplifiedAttachmentBean newAttachmentBean = addObjectAttachment(destinationObject, sourceFile, attachmentComment.replace("SOURCE_OBJECT_KEY", sourceObjectKey), deleteSourceFiles)
+                SimplifiedAttachmentBean newAttachmentBean = addObjectAttachment(destinationObject, sourceFile, "", attachmentComment.replace("SOURCE_OBJECT_KEY", sourceObjectKey), deleteSourceFiles)
 
                 if (newAttachmentBean == null && readOnly) {
                     log.info("\tCurrently in readOnly mode, attachment was not imported")

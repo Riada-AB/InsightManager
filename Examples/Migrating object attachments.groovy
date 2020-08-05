@@ -1,3 +1,4 @@
+import com.riadalabs.jira.plugins.insight.services.model.AttachmentBean
 import com.riadalabs.jira.plugins.insight.services.model.ObjectBean
 import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner
 import org.apache.log4j.Level
@@ -5,11 +6,13 @@ import org.apache.log4j.Logger
 
 
 
-boolean readOnly = true
-String sourceIQL = "" //An IQL matching all the objects that are to be exported
-int sourceSchemaId = 2 //The Object schema ID to export from
-String exportDirectoryPath = ""  //Where should the exported attachments be placed
+boolean readOnly = false
+String sourceIQL = "ObjectTypeId = 97" //An IQL matching all the objects that are to be exported
+int sourceSchemaId = 8 //The Object schema ID to export from
+String exportDirectoryPath = "/opt/atlassian/jiraim84/temp/migrateAttachments"  //Where should the exported attachments be placed
 
+
+//tail -F /var/atlassian/application-data/jiraim8*/log/atlassian-jira.log | sed -n -e 's/^.*attachments]//p'
 Logger log = Logger.getLogger("im.migrate.object.attachments")
 log.setLevel(Level.ALL)
 
@@ -19,6 +22,8 @@ log.info("\tThe exported files will be placed here: $exportDirectoryPath")
 
 
 InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
+im.readOnly = readOnly
+im.log.setLevel(Level.ALL)
 
 ArrayList<ObjectBean>exportObjects = im.iql(sourceSchemaId, sourceIQL)
 
@@ -37,5 +42,6 @@ exportObjects.each {
 log.info("\tAttachment export has finished")
 log.debug("\t"*2 + exportedFiles.size() + " attachments where exported")
 log.debug("\t"*2 + exportedFiles.collect{it.size()}.sum() + " Bytes where exported")
+
 
 

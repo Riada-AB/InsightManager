@@ -3,7 +3,6 @@ package customRiadaLibraries.insightmanager
 import com.atlassian.jira.component.ComponentAccessor
 import com.atlassian.jira.config.util.JiraHome
 import com.onresolve.scriptrunner.runner.customisers.WithPlugin
-import com.riadalabs.jira.plugins.insight.services.model.AttachmentBean
 import com.riadalabs.jira.plugins.insight.services.model.ObjectBean
 import org.apache.commons.io.FileUtils
 import org.apache.log4j.Level
@@ -11,12 +10,7 @@ import org.apache.log4j.Logger
 import org.junit.runner.JUnitCore
 import org.junit.runner.Result
 import spock.lang.Specification
-import org.junit.runner.Request
-import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner
 import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner.SimplifiedAttachmentBean
-
-import java.nio.file.Files
-import java.nio.file.Paths
 
 /**
  * If script fails due to "unable to resolve class customRiadaLibraries.insightmanager.InsightManagerForScriptrunner.SimplifiedAttachmentBean"
@@ -76,7 +70,7 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
         //An object that we will test importing attachments to.
         // It´s preexisting attachments will be deleted
         //It should have a text attribute "Old Object key" with the value of $sourceObjectKey
-        String destinationObjectKey = "TAS-6591"
+        String destinationObjectKey = "TAD-6592"
 
         boolean okToDeleteExportPath = false
         String exportPath = System.getProperty("java.io.tmpdir") + "/" + this.class.simpleName + "/TestAttachmentReadOnly"
@@ -250,7 +244,7 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
         setup:
         log.info("Testing export  and import of attachments")
         String sourceObjectKey = "TAS-6590" //An object that already has attachments
-        String destinationObjectKey = "TAS-6591" //An object that we will test importing attachments to. It´s preexisting attachments will be deleted
+        String destinationObjectKey = "TAD-6592" //An object that we will test importing attachments to. It´s preexisting attachments will be deleted
 
 
         boolean okToDeleteExportPath = false
@@ -394,7 +388,7 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
         when:
         log.debug("\tTesting attaching file to $testObject")
 
-        SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(testObject, testFile, attachmentComment, testDeletionOfSource)
+        SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(testObject, testFile, "", attachmentComment, testDeletionOfSource)
         expectedAttachmentPath += newAttachmentBean.attachmentBean.nameInFileSystem
 
 

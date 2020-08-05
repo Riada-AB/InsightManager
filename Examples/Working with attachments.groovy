@@ -35,7 +35,7 @@ sourceAttachmentBeans.each {beanToBeMoved ->
 
 
     log.trace("\t"*2 + "Attaching:" + tempFile.name + " to destination object")
-    SimplifiedAttachmentBean newSimplifiedAttachmentBean = im.addObjectAttachment(destinationObjectKey, tempFile, "Moved from object:" + sourceObjectKey, true)
+    SimplifiedAttachmentBean newSimplifiedAttachmentBean = im.addObjectAttachment(destinationObjectKey, tempFile, "", "Moved from object:" + sourceObjectKey, true)
 
     assert newSimplifiedAttachmentBean.isValid()
 
