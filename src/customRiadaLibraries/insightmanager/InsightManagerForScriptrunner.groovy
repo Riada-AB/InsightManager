@@ -1466,14 +1466,19 @@ class InsightManagerForScriptrunner {
 
             log.debug("\tStarting import of ${sourceFiles.size()} files")
             sourceFiles.each { sourceFile ->
-                log.trace("\t" * 2 + "Importing:" + sourceFile.name)
+                String attachmentName = sourceFile.name
+                log.trace("\t" * 2 + "Importing:" + attachmentName)
                 if (sourceFile.isDirectory()) {
                     log.error("Importing directories is not supported:" + sourceFile.path)
                     throw new FileSystemException("Importing directories is not supported:" + sourceFile.path)
                 }
+                if (attachmentName.matches(".*_DUPLICATE\\d+\$")) {
+                    attachmentName = attachmentName.replaceFirst("_DUPLICATE\\d+\$", "")
+                    log.trace("\t" * 3 + "The file name is a duplicate, but will be imported as:" + attachmentName)
+                }
 
 
-                SimplifiedAttachmentBean newAttachmentBean = addObjectAttachment(destinationObject, sourceFile, "", attachmentComment.replace("SOURCE_OBJECT_KEY", sourceObjectKey), deleteSourceFiles)
+                SimplifiedAttachmentBean newAttachmentBean = addObjectAttachment(destinationObject, sourceFile, attachmentName, attachmentComment.replace("SOURCE_OBJECT_KEY", sourceObjectKey), deleteSourceFiles)
 
                 if (newAttachmentBean == null && readOnly) {
                     log.info("\tCurrently in readOnly mode, attachment was not imported")

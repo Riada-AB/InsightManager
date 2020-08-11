@@ -26,7 +26,8 @@ import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner.Simplif
 
 @WithPlugin("com.riadalabs.jira.plugins.insight")
 
-
+//FIXME Add additional tests
+// - Export and import files with same name
 
 String hostURI = "http://jiratest-im84.stuxnet.se"
 String restUser = "anders"
