@@ -1,9 +1,12 @@
+import com.onresolve.scriptrunner.runner.customisers.WithPlugin
 import com.riadalabs.jira.plugins.insight.services.model.ObjectBean
 import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner
 import org.apache.commons.io.FileUtils
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
 
+
+@WithPlugin("com.riadalabs.jira.plugins.insight")
 
 
 boolean readOnly = false

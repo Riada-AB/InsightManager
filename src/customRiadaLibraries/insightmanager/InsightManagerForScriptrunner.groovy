@@ -1312,6 +1312,7 @@ class InsightManagerForScriptrunner {
     /**
      * This method will export the attachments of an Object
      * The exported files will be exported to $destinationDirectory/$objectKey/
+     * The attachment name will be used as filename, if this results in duplicate file names they will be renamed $atachmentName_DUPLICATE1..999
      * @param object key, id or objectbean of the object you want to export from
      * @param destinationDirectory The output directory, a new child folder with the $objectKey will be created and the files will be put in to that folder
      * @return An Array with the exported File objects
@@ -1383,7 +1384,7 @@ class InsightManagerForScriptrunner {
      *  <li>Determine destination object based on matchingIQL<br> </li>
      *  <li>For every attachment sourceDirectoryPath/$SOURCE_OBJECT_KEY <br>
      *        3.1 Determine if the destination object already has the attachment in question and skip it if ignoreDuplicates == true<br>
-     *        3.2 Attach the file to the destination Object and add the attachment comment attachmentComment it != ""<br>
+     *        3.2 Attach the file to the destination Object and add the attachment comment attachmentComment if it != ""<br>
      *        3.3 If deleteSourceFiles == true, the attached source file will be deleted </li>
      *  </ol>
      *

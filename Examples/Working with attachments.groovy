@@ -6,7 +6,7 @@ import org.apache.log4j.Logger
 import java.nio.file.Files
 
 
-String fileName = "leia.jpg"
+String fileName = "leia.jpg"  //An attachment that is already attached to sourceObjectKey but missing on destinationObjectKey
 String sourceObjectKey = "TAS-6590"
 String destinationObjectKey = "TAS-6591"
 
