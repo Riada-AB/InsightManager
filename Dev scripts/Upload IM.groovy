@@ -15,7 +15,9 @@ String destinationFileName = "customRiadaLibraries/insightmanager/InsightManager
 
 uploadIm(hostURI, restUser, restPw, sourceFile, jiraHome, destinationFileName)
 clearCodeCache(hostURI, restUser, restPw)
+
 subclassWorkaround(hostURI, restUser, restPw)
+
 
 void uploadIm(String hostURI, String restUser, String restPw, String sourceFilePath, String jiraHomePath, String destFileName) {
 
@@ -70,6 +72,7 @@ void clearCodeCache(String hostURI, String restUser, String restPw) {
     println("Cache clear output:" + rawReturn.output)
 
 }
+
 
 
 void subclassWorkaround(String hostURI, String restUser, String restPw) {
