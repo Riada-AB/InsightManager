@@ -6,7 +6,9 @@ import org.apache.log4j.Logger
 import java.nio.file.Files
 
 
-String fileName = "leia.jpg"
+
+String fileName = "leia.jpg"  //An attachment that is already attached to sourceObjectKey but missing on destinationObjectKey
+
 String sourceObjectKey = "TAS-6590"
 String destinationObjectKey = "TAS-6591"
 
@@ -35,7 +37,9 @@ sourceAttachmentBeans.each {beanToBeMoved ->
 
 
     log.trace("\t"*2 + "Attaching:" + tempFile.name + " to destination object")
-    SimplifiedAttachmentBean newSimplifiedAttachmentBean = im.addObjectAttachment(destinationObjectKey, tempFile, "Moved from object:" + sourceObjectKey, true)
+
+    SimplifiedAttachmentBean newSimplifiedAttachmentBean = im.addObjectAttachment(destinationObjectKey, tempFile, "", "Moved from object:" + sourceObjectKey, true)
+
 
     assert newSimplifiedAttachmentBean.isValid()
 

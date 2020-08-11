@@ -16,6 +16,9 @@ String destinationFileName = "customRiadaLibraries/insightmanager/InsightManager
 uploadIm(hostURI, restUser, restPw, sourceFile, jiraHome, destinationFileName)
 clearCodeCache(hostURI, restUser, restPw)
 
+subclassWorkaround(hostURI, restUser, restPw)
+
+
 void uploadIm(String hostURI, String restUser, String restPw, String sourceFilePath, String jiraHomePath, String destFileName) {
 
     println("Uploading file:" +sourceFilePath + " to:" + jiraHomePath)
@@ -70,3 +73,35 @@ void clearCodeCache(String hostURI, String restUser, String restPw) {
 
 }
 
+
+
+void subclassWorkaround(String hostURI, String restUser, String restPw) {
+
+
+    String script = "" +
+            "import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner\n" +
+            "\n" +
+            " customRiadaLibraries.insightmanager.InsightManagerForScriptrunner.SimplifiedAttachmentBean simplifiedAttachmentBean\n" +
+            "\n" +
+            " log.warn(\"SimplifiedAttachmentBean was imported\")"
+
+    //script = URLEncoder.encode(script, "UTF-8")
+
+    HttpURLConnection connection = new URL(hostURI + "/rest/scriptrunner/latest/user/exec/").openConnection() as HttpURLConnection
+    String auth = restUser + ":" + restPw
+    auth = "Basic " + auth.bytes.encodeBase64().toString()
+    connection.setRequestProperty("Authorization", auth)
+    connection.setDoOutput(true)
+    connection.setRequestMethod("POST")
+    connection.setRequestProperty("Content-Type", "application/json")
+    connection.setRequestProperty("Accept", "application/json")
+    connection.setRequestProperty("X-Atlassian-token" ,"no-check")
+    byte[] jsonByte = new JsonBuilder(["script":script]).toPrettyString().getBytes("UTF-8")
+    connection.outputStream.write(jsonByte, 0, jsonByte.length)
+
+
+    LazyMap rawReturn = new JsonSlurper().parse(connection.getInputStream())
+
+    println("Subclass workround output:" + rawReturn.snapshot.log)
+
+}
