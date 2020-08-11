@@ -20,9 +20,11 @@ import org.apache.log4j.Logger
 import org.joda.time.DateTime
 
 
+
 import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.Paths
+
 import java.text.DateFormat
 import java.time.LocalDateTime
 
@@ -113,9 +115,11 @@ class InsightManagerForScriptrunner {
         userManager = ComponentAccessor.getUserManager()
 
 
+
         //Static Paths
         baseUrl = ComponentAccessor.getApplicationProperties().getString(APKeys.JIRA_BASEURL)
         jiraDataPath = ComponentAccessor.getComponentOfType(JiraHome).getDataDirectory().path
+
 
 
         log = Logger.getLogger(this.class.name)
@@ -1143,13 +1147,16 @@ class InsightManagerForScriptrunner {
             otherBean = other as SimplifiedAttachmentBean
             if (this.attachmentFile.getBytes().sha256() != otherBean.attachmentFile.getBytes().sha256()) {
                 return false
+
             } else if (this.attachmentBean.nameInFileSystem != otherBean.attachmentBean.nameInFileSystem) {
                 return false
             } else {
+
                 return true
             }
 
         }
+
 
 
     }
@@ -1162,6 +1169,7 @@ class InsightManagerForScriptrunner {
     File getAttachmentBeanFile(AttachmentBean attachmentBean) {
         log.trace("\tGetting file for attachmentBean:" + attachmentBean.id)
         String expectedPath = jiraDataPath + "/attachments/insight/object/${attachmentBean.objectId}/" + attachmentBean.getNameInFileSystem()
+
 
         log.trace("\t" * 3 + "Expect file to be located here:" + expectedPath)
 
@@ -1193,9 +1201,11 @@ class InsightManagerForScriptrunner {
             attachmentBeans.each {
                 log.debug("\t" * 2 + it.getFilename() + " (${it.getNameInFileSystem()}) " + it.mimeType)
 
+
             }
 
             objectAttachments.addAll(attachmentBeans.collect { new SimplifiedAttachmentBean(it) })
+
 
         } catch (all) {
             log.error("There was an error trying to retrieve attachments for object:" + object)
@@ -1224,6 +1234,7 @@ class InsightManagerForScriptrunner {
      */
     SimplifiedAttachmentBean addObjectAttachment(def object, File file, String attachmentName = "", String attachmentComment = "", boolean deleteSourceFile = false) {
 
+
         log.info("Will add attachment ${file.name} to object:" + object)
 
         ObjectBean objectBean
@@ -1233,6 +1244,7 @@ class InsightManagerForScriptrunner {
         try {
             objectBean = getObjectBean(object)
             assert objectBean != null: "Could not find objectbean based on $object"
+
 
             if (readOnly) {
                 log.info("\tCurrently in readOnly mode, wont add attachment")
@@ -1257,6 +1269,7 @@ class InsightManagerForScriptrunner {
             log.error("There was an error trying add attachment ${sourceFile.name} to object:" + object)
             log.error(all.message)
             return null
+
         }
 
 
@@ -1282,6 +1295,7 @@ class InsightManagerForScriptrunner {
 
 
         if (attachmentId == 0) {
+
             throw new InputMismatchException("Could not determine attachment based on $attachment")
         }
 
@@ -1307,6 +1321,7 @@ class InsightManagerForScriptrunner {
         }
 
     }
+
 
 
     /**
@@ -1504,6 +1519,7 @@ class InsightManagerForScriptrunner {
         return newAttachmentBeans
 
     }
+
 
 
     void logRelevantStacktrace(StackTraceElement[] stacktrace) {

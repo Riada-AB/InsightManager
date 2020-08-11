@@ -3,6 +3,7 @@ package customRiadaLibraries.insightmanager
 import com.atlassian.jira.component.ComponentAccessor
 import com.atlassian.jira.config.util.JiraHome
 import com.onresolve.scriptrunner.runner.customisers.WithPlugin
+
 import com.riadalabs.jira.plugins.insight.services.model.ObjectBean
 import org.apache.commons.io.FileUtils
 import org.apache.log4j.Level
@@ -26,6 +27,7 @@ import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner.Simplif
 
 @WithPlugin("com.riadalabs.jira.plugins.insight")
 
+
 //FIXME Add additional tests
 // - Export and import files with same name
 
@@ -37,8 +39,10 @@ Logger log = Logger.getLogger("test.report")
 log.setLevel(Level.ALL)
 
 JUnitCore jUnitCore = new JUnitCore()
+
 //Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecifications.class, 'Test readOnly mode of attachment operations'))
 Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecifications)
+
 
 
 spockResult.failures.each { log.error(it) }
@@ -57,6 +61,7 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
     def setup() {
 
         log.setLevel(Level.ALL)
+
 
 
     }
@@ -237,7 +242,9 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
         }
 
 
+
     }
+
 
 
     def 'Test attachment export and import'() {
@@ -382,14 +389,20 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
 
         log.debug("\tDownloading source file")
         File testFile = downloadFile(sourceFilePath, destinationPath)
+
         assert testFile.exists(): "Error downloading sourcefile:" + sourceFilePath
+
         String testFileHash = testFile.getBytes().sha256()
         log.debug("\tDownload complete: ${testFile.path}, size: " + testFile.size())
 
         when:
         log.debug("\tTesting attaching file to $testObject")
 
+
         SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(testObject, testFile, "", attachmentComment, testDeletionOfSource)
+
+        SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(testObject, testFile, attachmentComment, testDeletionOfSource)
+
         expectedAttachmentPath += newAttachmentBean.attachmentBean.nameInFileSystem
 
 
@@ -407,6 +420,7 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
         log.trace("\t\tA new attachmentBean was created")
 
         when:
+
         log.debug("\tTesting getAllObjectAttachmentBeans() to find and verify the new attachment")
         ArrayList<SimplifiedAttachmentBean> objectAttachments = im.getAllObjectAttachmentBeans(testObject)
         SimplifiedAttachmentBean retrievedSimplifiedAttachment = objectAttachments.find { it.id == newAttachmentBean.id }
@@ -414,7 +428,9 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
         then:
         assert retrievedSimplifiedAttachment.originalFileName == testFile.name: "The name of the test file and the retrieved attachment file doesn't match"
         assert retrievedSimplifiedAttachment.attachmentFile.getBytes().sha256() == testFileHash: "The hash of the test file and the retrieved attachment file doesn't match"
+
         assert newAttachmentBean.attachmentBean.comment == retrievedSimplifiedAttachment.attachmentBean.comment: "The comment of the SimplifiedAttachmentBean differs"
+
         log.trace("\t\tThe new attachment was successfully verified")
 
         when:
@@ -422,7 +438,9 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
         boolean deletionResult = im.deleteObjectAttachment(newAttachmentBean)
 
         then:
+
         assert deletionResult: "deleteObjectAttachment was unsuccessful and returned false"
+
         assert im.objectFacade.loadAttachmentBeanById(newAttachmentBean.id) == null
         assert !new File(expectedAttachmentPath).canRead(): "The attached file can still be found at the expected path:" + expectedAttachmentPath
         log.trace("\t\tThe attachment was successfully deleted")
@@ -435,12 +453,14 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
         }
 
 
+
         where:
         sourceFilePath                                                                                             | testDeletionOfSource | attachmentComment
         "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"                       | false                | "no comment"
         "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"                       | true                 | "no comment"
         "https://www.atlassian.com/dam/jcr:242ae640-3d6a-472d-803d-45d8dcc2a8d2/Atlassian-horizontal-blue-rgb.svg" | true                 | " a comment"
         "https://bitbucket.org/atlassian/jira_docs/downloads/JIRACORESERVER_8.10.pdf"                              | false                | "another commenct"
+
 
     }
 
