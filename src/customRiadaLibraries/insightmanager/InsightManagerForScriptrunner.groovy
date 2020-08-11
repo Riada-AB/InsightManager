@@ -20,7 +20,6 @@ import org.apache.log4j.Logger
 import org.joda.time.DateTime
 
 
-
 import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -29,6 +28,11 @@ import java.text.DateFormat
 import java.time.LocalDateTime
 
 /**
+ * Breaking changes 2020-10-11
+ *  getObjectAttributeValues()
+ *      When returning status attribute this method used to return the ID of the status, from now on the Name of the status is returned.
+ *      NOTE: this changes the output of renderObjectToHtml()
+ *
  * Breaking changes in 8.4
  *  getObjectAttributeValues() doesnt return empty values
  *                                                                     <=8.3                           >=8.4
@@ -66,6 +70,8 @@ class InsightManagerForScriptrunner {
     ProgressFacadeImpl progressFacade
     Class objectTicketFacadeClass
     ObjectTicketFacadeImpl objectTicketFacade
+    Class configureFacadeClass
+    ConfigureFacadeImpl configureFacade
     public boolean readOnly
     public boolean autoEscalate = true//should Insight requests be automatically escalated?
     private boolean currentlyEscalate = false
@@ -99,6 +105,7 @@ class InsightManagerForScriptrunner {
         ImportSourceConfigurationFacadeClass = ComponentAccessor.getPluginAccessor().getClassLoader().findClass("com.riadalabs.jira.plugins.insight.channel.external.api.facade.ImportSourceConfigurationFacade")
         ProgressFacadeClass = ComponentAccessor.getPluginAccessor().getClassLoader().findClass("com.riadalabs.jira.plugins.insight.channel.external.api.facade.ProgressFacade")
         objectTicketFacadeClass = ComponentAccessor.getPluginAccessor().getClassLoader().findClass("com.riadalabs.jira.plugins.insight.channel.external.api.facade.ObjectTicketFacade")
+        configureFacadeClass = ComponentAccessor.getPluginAccessor().getClassLoader().findClass("com.riadalabs.jira.plugins.insight.channel.external.api.facade.ConfigureFacade")
 
         //The facade instances
         objectFacade = ComponentAccessor.getOSGiComponentInstanceOfType(objectFacadeClass) as ObjectFacadeImpl
@@ -109,17 +116,16 @@ class InsightManagerForScriptrunner {
         importFacade = ComponentAccessor.getOSGiComponentInstanceOfType(ImportSourceConfigurationFacadeClass) as ImportSourceConfigurationFacadeImpl
         progressFacade = ComponentAccessor.getOSGiComponentInstanceOfType(ProgressFacadeClass) as ProgressFacadeImpl
         objectTicketFacade = ComponentAccessor.getOSGiComponentInstanceOfType(objectTicketFacadeClass) as ObjectTicketFacadeImpl
+        configureFacade = ComponentAccessor.getOSGiComponentInstanceOfType(configureFacadeClass) as ConfigureFacadeImpl
 
         //Atlassian Managers
         authContext = ComponentAccessor.getJiraAuthenticationContext();
         userManager = ComponentAccessor.getUserManager()
 
 
-
         //Static Paths
         baseUrl = ComponentAccessor.getApplicationProperties().getString(APKeys.JIRA_BASEURL)
         jiraDataPath = ComponentAccessor.getComponentOfType(JiraHome).getDataDirectory().path
-
 
 
         log = Logger.getLogger(this.class.name)
@@ -899,6 +905,8 @@ class InsightManagerForScriptrunner {
         List values = valueBeans.collect {
             if (it.referencedObjectBeanId != null) {
                 return getObjectBean(it.value)
+            } else if (objectTypeAttributeBean.status) {
+                return configureFacade.loadStatusTypeBean(it.value as int).name
             } else {
                 return it.value
             }
@@ -953,6 +961,8 @@ class InsightManagerForScriptrunner {
 
                 if (it.referencedObjectBeanId != null) {
                     return getObjectBean(it.value)
+                } else if (objectTypeAttributeBean.status) {
+                    return configureFacade.loadStatusTypeBean(it.value as int).name
                 } else {
                     return it.value
                 }
@@ -972,12 +982,12 @@ class InsightManagerForScriptrunner {
     }
 
 
-    /**
-     * This will create a HTML table showing some or all of an objects attributes
-     * @param Object id, Objectbean, key
-     * @param Attributes name of attributes (string) or id (integer), if left empty all attributes will be returned.
-     * @return A HTML string
-     */
+/**
+ * This will create a HTML table showing some or all of an objects attributes
+ * @param Object id, Objectbean, key
+ * @param Attributes name of attributes (string) or id (integer), if left empty all attributes will be returned.
+ * @return A HTML string
+ */
     String renderObjectToHtml(def Object, List Attributes = []) {
 
         ObjectBean object = getObjectBean(Object)
@@ -1044,11 +1054,11 @@ class InsightManagerForScriptrunner {
     }
 
 
-    /**
-     * Deletes an object
-     * @param object Can be object ID, Object Key or ObjectBean
-     * @return boolean representing success or failure
-     */
+/**
+ * Deletes an object
+ * @param object Can be object ID, Object Key or ObjectBean
+ * @return boolean representing success or failure
+ */
     boolean deleteObject(def object) {
 
         log.debug("Deleting object:" + object)
@@ -1081,11 +1091,11 @@ class InsightManagerForScriptrunner {
     }
 
 
-    /**
-     * Returns all history beans for an object
-     * @param object key, id or objectbean
-     * @return
-     */
+/**
+ * Returns all history beans for an object
+ * @param object key, id or objectbean
+ * @return
+ */
     ArrayList<ObjectHistoryBean> getObjectHistory(def object) {
 
         ArrayList<ObjectHistoryBean> historyBeans = []
@@ -1105,10 +1115,10 @@ class InsightManagerForScriptrunner {
     }
 
 
-    /**
-     * <h3>This is a class intended to simplify working with Insight AttachmentBeans</h3>
-     * Once instantiated it will give you easy access to the AttachmentBean it self as well as the related File object
-     */
+/**
+ * <h3>This is a class intended to simplify working with Insight AttachmentBeans</h3>
+ * Once instantiated it will give you easy access to the AttachmentBean it self as well as the related File object
+ */
     public class SimplifiedAttachmentBean {
 
         public AttachmentBean attachmentBean
@@ -1158,14 +1168,13 @@ class InsightManagerForScriptrunner {
         }
 
 
-
     }
 
-    /**
-     * This method will give you the File object of an AttachmentBean
-     * @param attachmentBean The AttachmentBean whose File object you want
-     * @return A File object
-     */
+/**
+ * This method will give you the File object of an AttachmentBean
+ * @param attachmentBean The AttachmentBean whose File object you want
+ * @return A File object
+ */
     File getAttachmentBeanFile(AttachmentBean attachmentBean) {
         log.trace("\tGetting file for attachmentBean:" + attachmentBean.id)
         String expectedPath = jiraDataPath + "/attachments/insight/object/${attachmentBean.objectId}/" + attachmentBean.getNameInFileSystem()
@@ -1178,12 +1187,12 @@ class InsightManagerForScriptrunner {
         return attachmentFile
     }
 
-    /**
-     * This method will retrieve all SimplifiedAttachmentBeans belonging to an object.
-     * @param object key, id or objectbean
-     * @return ArrayList containing SimplifiedAttachmentBean
-     * <b>Note</b> that the File object will have a different file name than the original file name.
-     */
+/**
+ * This method will retrieve all SimplifiedAttachmentBeans belonging to an object.
+ * @param object key, id or objectbean
+ * @return ArrayList containing SimplifiedAttachmentBean
+ * <b>Note</b> that the File object will have a different file name than the original file name.
+ */
     ArrayList<SimplifiedAttachmentBean> getAllObjectAttachmentBeans(def object) {
 
         log.info("Will get attachments for object:" + object)
@@ -1223,15 +1232,15 @@ class InsightManagerForScriptrunner {
     }
 
 
-    /**
-     * Add an attachment to an object
-     * @param object key, id or objectbean of the object you want to attatch to
-     * @param file the file you´d like to attach
-     * @param attachmentName (Optional) Specify a name for the attachment, if non is given the file name will be used
-     * @param attachmentComment (Optional) a comment relevant to the attachment, note that this is not the same as an object comment
-     * @param deleteSourceFile (Default: False) Should the source file be deleted?
-     * @return A SimplifiedAttachmentBean representing the new attachment
-     */
+/**
+ * Add an attachment to an object
+ * @param object key, id or objectbean of the object you want to attatch to
+ * @param file the file you´d like to attach
+ * @param attachmentName (Optional) Specify a name for the attachment, if non is given the file name will be used
+ * @param attachmentComment (Optional) a comment relevant to the attachment, note that this is not the same as an object comment
+ * @param deleteSourceFile (Default: False) Should the source file be deleted?
+ * @return A SimplifiedAttachmentBean representing the new attachment
+ */
     SimplifiedAttachmentBean addObjectAttachment(def object, File file, String attachmentName = "", String attachmentComment = "", boolean deleteSourceFile = false) {
 
 
@@ -1275,11 +1284,11 @@ class InsightManagerForScriptrunner {
 
     }
 
-    /**
-     * Delete an attachment
-     * @param attachment Id, AttachmentBean or SimplifiedAttachmentBean
-     * @return true if successful
-     */
+/**
+ * Delete an attachment
+ * @param attachment Id, AttachmentBean or SimplifiedAttachmentBean
+ * @return true if successful
+ */
     boolean deleteObjectAttachment(def attachment) {
 
         log.info("Will delete attachment ($attachment)")
@@ -1323,15 +1332,14 @@ class InsightManagerForScriptrunner {
     }
 
 
-
-    /**
-     * This method will export the attachments of an Object
-     * The exported files will be exported to $destinationDirectory/$objectKey/
-     * The attachment name will be used as filename, if this results in duplicate file names they will be renamed $atachmentName_DUPLICATE1..999
-     * @param object key, id or objectbean of the object you want to export from
-     * @param destinationDirectory The output directory, a new child folder with the $objectKey will be created and the files will be put in to that folder
-     * @return An Array with the exported File objects
-     */
+/**
+ * This method will export the attachments of an Object
+ * The exported files will be exported to $destinationDirectory/$objectKey/
+ * The attachment name will be used as filename, if this results in duplicate file names they will be renamed $atachmentName_DUPLICATE1..999
+ * @param object key, id or objectbean of the object you want to export from
+ * @param destinationDirectory The output directory, a new child folder with the $objectKey will be created and the files will be put in to that folder
+ * @return An Array with the exported File objects
+ */
     ArrayList<File> exportObjectAttachments(def object, String destinationDirectory) {
 
         ObjectBean objectBean = getObjectBean(object)
@@ -1348,7 +1356,7 @@ class InsightManagerForScriptrunner {
             log.debug("\tCurrently in read only mode or the attachments would be exported to:" + destinationDirectory)
         } else {
             File outputDir = new File(destinationDirectory)
-            assert !outputDir.exists() : "Output directory already exists:" + outputDir.path
+            assert !outputDir.exists(): "Output directory already exists:" + outputDir.path
             outputDir.mkdirs()
 
             assert outputDir.isDirectory(): "Could not create export directory:" + destinationDirectory
@@ -1375,7 +1383,7 @@ class InsightManagerForScriptrunner {
                         duplicateNr++
                     }
                     exportedFilePath += "_DUPLICATE" + duplicateNr
-                    log.trace("\t" * 3 + "A file with the same name has already been exported, will rename output file:" + sourceBean.originalFileName +  "_DUPLICATE" + duplicateNr)
+                    log.trace("\t" * 3 + "A file with the same name has already been exported, will rename output file:" + sourceBean.originalFileName + "_DUPLICATE" + duplicateNr)
                 }
 
                 File exportedFile = Files.copy(sourceBean.attachmentFile.toPath(), Paths.get(exportedFilePath)).toFile()
@@ -1392,24 +1400,24 @@ class InsightManagerForScriptrunner {
 
     }
 
-    /**
-     * This method will import object attachments using the following steps:<br>
-     *  <ol>
-     *  <li>Determine source object key based on sourceDirectoryPath sub folder name<br> </li>
-     *  <li>Determine destination object based on matchingIQL<br> </li>
-     *  <li>For every attachment sourceDirectoryPath/$SOURCE_OBJECT_KEY <br>
-     *        3.1 Determine if the destination object already has the attachment in question and skip it if ignoreDuplicates == true<br>
-     *        3.2 Attach the file to the destination Object and add the attachment comment attachmentComment if it != ""<br>
-     *        3.3 If deleteSourceFiles == true, the attached source file will be deleted </li>
-     *  </ol>
-     *
-     * @param sourceDirectoryPath A folder containing one or more folders with the source objects key as name and the files to be attached in those folders. This is the structure given by exportObjectAttachments()
-     * @param matchingIQL This IQL should match a single destination object in all of Insight. It must contain the keyword SOURCE_OBJECT_KEY which will be replaced at runtime by the source objects key (based on the folder name)
-     * @param attachmentComment (Optional) A comment can be added to the attachment if wanted.  SOURCE_OBJECT_KEY may be used in the comment and will be replaced by the source objects key.
-     * @param deleteSourceFiles (Default: False) Should the imported source files be deleted?
-     * @param ignoreDuplicates Should duplicates not be imported? Duplicates are determined based on file name and SHA256 hash.
-     * @return An Array containing the new SimplifiedAttachmentBeans
-     */
+/**
+ * This method will import object attachments using the following steps:<br>
+ *  <ol>
+ *  <li>Determine source object key based on sourceDirectoryPath sub folder name<br> </li>
+ *  <li>Determine destination object based on matchingIQL<br> </li>
+ *  <li>For every attachment sourceDirectoryPath/$SOURCE_OBJECT_KEY <br>
+ *        3.1 Determine if the destination object already has the attachment in question and skip it if ignoreDuplicates == true<br>
+ *        3.2 Attach the file to the destination Object and add the attachment comment attachmentComment if it != ""<br>
+ *        3.3 If deleteSourceFiles == true, the attached source file will be deleted </li>
+ *  </ol>
+ *
+ * @param sourceDirectoryPath A folder containing one or more folders with the source objects key as name and the files to be attached in those folders. This is the structure given by exportObjectAttachments()
+ * @param matchingIQL This IQL should match a single destination object in all of Insight. It must contain the keyword SOURCE_OBJECT_KEY which will be replaced at runtime by the source objects key (based on the folder name)
+ * @param attachmentComment (Optional) A comment can be added to the attachment if wanted.  SOURCE_OBJECT_KEY may be used in the comment and will be replaced by the source objects key.
+ * @param deleteSourceFiles (Default: False) Should the imported source files be deleted?
+ * @param ignoreDuplicates Should duplicates not be imported? Duplicates are determined based on file name and SHA256 hash.
+ * @return An Array containing the new SimplifiedAttachmentBeans
+ */
     ArrayList<SimplifiedAttachmentBean> importObjectAttachments(String sourceDirectoryPath, String matchingIQL = "\"Old Object key\" = SOURCE_OBJECT_KEY", String attachmentComment = "Imported from SOURCE_OBJECT_KEY", boolean deleteSourceFiles = false, boolean ignoreDuplicates = true) {
 
         log.info("Will import attachments")
@@ -1519,7 +1527,6 @@ class InsightManagerForScriptrunner {
         return newAttachmentBeans
 
     }
-
 
 
     void logRelevantStacktrace(StackTraceElement[] stacktrace) {
