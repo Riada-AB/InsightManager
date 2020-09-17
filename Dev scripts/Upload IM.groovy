@@ -9,14 +9,19 @@ import org.apache.groovy.json.internal.LazyMap
 String hostURI  = "http://jiratest-im84.stuxnet.se"
 String restUser = "anders"
 String restPw = restUser
-String sourceFile = "src/customRiadaLibraries/insightmanager/InsightManagerForScriptrunner.groovy"
 String jiraHome = "/var/atlassian/application-data/jiraim84/"
-String destinationFileName = "customRiadaLibraries/insightmanager/InsightManagerForScriptrunner.groovy"
+Map<String, String>sourceDestinationFile = [
+        "src/customRiadaLibraries/insightmanager/InsightManagerForScriptrunner.groovy": "customRiadaLibraries/insightmanager/InsightManagerForScriptrunner.groovy",
+        "src/customRiadaLibraries/insightmanager/SimplifiedAttachmentBean.groovy": "customRiadaLibraries/insightmanager/SimplifiedAttachmentBean.groovy"
+]
 
-uploadIm(hostURI, restUser, restPw, sourceFile, jiraHome, destinationFileName)
+sourceDestinationFile.each {sourceFile, destinationFile->
+    uploadIm(hostURI, restUser, restPw, sourceFile, jiraHome, destinationFile)
+}
+
 clearCodeCache(hostURI, restUser, restPw)
 
-subclassWorkaround(hostURI, restUser, restPw)
+//subclassWorkaround(hostURI, restUser, restPw)
 
 
 void uploadIm(String hostURI, String restUser, String restPw, String sourceFilePath, String jiraHomePath, String destFileName) {
