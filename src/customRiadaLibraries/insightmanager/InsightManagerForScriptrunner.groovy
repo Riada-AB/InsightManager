@@ -150,8 +150,8 @@ class InsightManagerForScriptrunner {
         log.debug("Getting import jobs for schema $SchemaID")
 
         escalatePrivilage("\t")
-
         ArrayList<ImportSource> imports = importFacade.findImportSourcesBySchema(SchemaID)
+        dropPrivilage("\t")
 
         log.trace("\tFound Imports:")
         imports.each {
@@ -159,7 +159,7 @@ class InsightManagerForScriptrunner {
         }
 
         log.debug("Found " + imports.size() + " imports")
-        dropPrivilage("\t")
+
 
 
         return imports
@@ -182,12 +182,14 @@ class InsightManagerForScriptrunner {
         Progress progress = null
 
 
-        escalatePrivilage("\t")
+
 
         try {
             if (Import instanceof Integer) {
                 importSourceId = Import
+                escalatePrivilage("\t")
                 importSourceObject = importFacade.loadImportSource(importSourceId)
+                dropPrivilage("\t")
 
             } else if (Import instanceof ImportSource) {
                 importSourceId = Import.id
@@ -205,7 +207,9 @@ class InsightManagerForScriptrunner {
                     log.debug("\tCurrently in read only mode, wont run import. Will return previous import result")
                     progress = getImportProgress(importSourceId)
                 } else {
+                    escalatePrivilage("\t")
                     progress = importFacade.startImportSource(importSourceId)
+                    dropPrivilage("\t")
                 }
 
             } else {
@@ -256,7 +260,9 @@ class InsightManagerForScriptrunner {
                     log.debug("\tCurrently in read only mode, wont run import. Will return previous import result")
                     progress = getImportProgress(importSourceId)
                 } else {
+                    escalatePrivilage("\t")
                     progress = importFacade.startImportSourceForSpecificOTs(importSourceId, OTStoImport)
+                    dropPrivilage("\t")
                 }
 
 
@@ -297,7 +303,6 @@ class InsightManagerForScriptrunner {
         }
 
 
-        dropPrivilage("\t")
         if (timeOut == 0) {
             log.info("Import started")
         } else {
@@ -322,7 +327,9 @@ class InsightManagerForScriptrunner {
 
         if (Import instanceof Integer) {
 
+            escalatePrivilage("\t")
             importSourceObject = importFacade.loadImportSource(Import)
+            dropPrivilage("\t")
 
         } else if (Import instanceof ImportSource) {
 
@@ -334,10 +341,11 @@ class InsightManagerForScriptrunner {
 
 
         log.debug("\tDetermined import to be: ${importSourceObject.name} (${importSourceObject.id})")
+        escalatePrivilage("\t")
         ProgressId progressId = ProgressId.create(importSourceObject.id.toString(), "imports")
 
-
         Progress progress = progressFacade.getProgress(progressId)
+        dropPrivilage("\t")
         log.debug("Got progress, ${progress.progressInPercent}%")
 
         return progress
@@ -372,7 +380,7 @@ class InsightManagerForScriptrunner {
             serviceUser = initialUser
         } else if (userSuppliedServiceUser instanceof ApplicationUser) {
             serviceUser = userSuppliedServiceUser
-            log.info("serviceUser set to " + serviceUser.username)
+            log.info("serviceUser set to " + serviceUser.username + "(${serviceUser.key})")
         } else {
             log.trace("A non ApplicationUser userSuppliedServiceUser has been supplied, attempting to retrieve ApplicationUser object")
             serviceUser = userManager.getUserByKey(userSuppliedServiceUser.toString())
@@ -399,9 +407,16 @@ class InsightManagerForScriptrunner {
 
             currentlyEscalate = authContext.getLoggedInUser() == serviceUser
 
+            assert currentlyEscalate: "Error escalating to $serviceUser, current user is:" + authContext.getLoggedInUser()
+
             return currentlyEscalate
         } else {
             log.trace(logPrepend + "Escalation not performed")
+            if (serviceUser == authContext.getLoggedInUser()) {
+                log.trace("\tCurrent user is already the service user")
+            } else {
+                log.warn("\tCurrent user is not the service user")
+            }
             return false
         }
 
@@ -414,12 +429,13 @@ class InsightManagerForScriptrunner {
             log.trace(logPrepend + "Descalating user privileges from initial account: $initialUser to service account: $serviceUser")
             authContext.setLoggedInUser(initialUser)
 
-            currentlyEscalate = false
+            currentlyEscalate = authContext.getLoggedInUser() != initialUser
+            assert !currentlyEscalate: "Error deescalating to $initialUser, current user is:" + authContext.getLoggedInUser()
 
 
-            return authContext.getLoggedInUser() == initialUser
+            return !currentlyEscalate
         } else {
-            log.trace(logPrepend + "Descalation not performed")
+            log.trace(logPrepend + "Deescalation not performed")
             return false
         }
 
@@ -475,7 +491,7 @@ class InsightManagerForScriptrunner {
 
         log.debug("Clearing attribute $attribute of object ${object}")
 
-        escalatePrivilage()
+
         ObjectBean objectBean = getObjectBean(object)
 
 
@@ -484,20 +500,24 @@ class InsightManagerForScriptrunner {
         } else {
 
             try {
+                escalatePrivilage("\t")
                 long attributeBeanId = objectFacade.loadObjectAttributeBean(objectBean.id, attribute).id
                 if (attributeBeanId != null) {
-                    objectFacade.deleteObjectAttributeBean(attributeBeanId as int, this.eventDispatchOption)
+
+                    objectFacade.deleteObjectAttributeBean(attributeBeanId, this.eventDispatchOption)
+
                 } else {
                     log.debug("\tAttribute is already empty")
                 }
+                dropPrivilage("\t")
 
             } catch (Exception vie) {
+                dropPrivilage("\t")
                 log.debug("Exception" + vie)
                 log.warn("Could not update object attribute due to validation exception:" + vie.getMessage());
+                logRelevantStacktrace(vie.stackTrace)
             }
         }
-
-        dropPrivilage()
 
     }
 
@@ -512,7 +532,9 @@ class InsightManagerForScriptrunner {
      */
     ObjectBean createObject(int schemeId, String objectTypeName, Map AttributeValues) {
 
+        escalatePrivilage("\t")
         int objectTypeId = objectTypeFacade.findObjectTypeBeansFlat(schemeId).find { it.name == objectTypeName }.id
+        dropPrivilage("\t")
 
         return createObject(objectTypeId, AttributeValues)
     }
@@ -536,7 +558,7 @@ class InsightManagerForScriptrunner {
 
             escalatePrivilage("\t")
             objectTypeBean = objectTypeFacade.loadObjectTypeBean(ObjectTypeId)
-
+            dropPrivilage("\t")
 
             if (objectTypeBean == null) {
                 throw new RuntimeException("Could not find ObjectType with ID " + ObjectTypeId)
@@ -548,9 +570,12 @@ class InsightManagerForScriptrunner {
             log.debug("\t" + AttributeValues.size() + " AttributeValues have been supplied, adding them to new object")
 
 
+            escalatePrivilage("\t")
             ArrayList availableAttributes = objectTypeAttributeFacade.findObjectTypeAttributeBeans(ObjectTypeId).collectMany {
                 [it.getId(), it.getName().toLowerCase()]
             }
+            dropPrivilage("\t")
+
             ArrayList<ObjectAttributeBean> objectAttributeBeans = []
 
 
@@ -594,28 +619,35 @@ class InsightManagerForScriptrunner {
                         }
                     }
 
+                    escalatePrivilage("\t")
                     attributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(mutableObjectBean, objectTypeAttributeBean, *valueStrings)
-
+                    dropPrivilage("\t")
 
                 } else if (attributeValue.value instanceof Date || attributeValue.value instanceof DateTime || attributeValue.value instanceof LocalDateTime) {
 
 
                     DateFormat dateFormat = DateFormat.getDateInstance()
+                    escalatePrivilage("\t")
                     attributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(mutableObjectBean, objectTypeAttributeBean, dateFormat, dateFormat, attributeValue.value as String)
-
+                    dropPrivilage("\t")
 
                 } else {
 
                     if (attributeValue.value instanceof ObjectBean) {
 
+                        escalatePrivilage("\t")
                         attributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(mutableObjectBean, objectTypeAttributeBean, attributeValue.value.objectKey)
+                        dropPrivilage("\t")
 
                     } else if (attributeValue.value instanceof ApplicationUser) {
+                        escalatePrivilage("\t")
                         attributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(mutableObjectBean, objectTypeAttributeBean, attributeValue.value.key)
+                        dropPrivilage("\t")
 
                     } else {
+                        escalatePrivilage("\t")
                         attributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(mutableObjectBean, objectTypeAttributeBean, attributeValue.value as String)
-
+                        dropPrivilage("\t")
                     }
 
                 }
@@ -637,11 +669,12 @@ class InsightManagerForScriptrunner {
             mutableObjectBean.setObjectAttributeBeans(objectAttributeBeans)
             if (readOnly) {
                 log.debug("\tCurrently in readOnly mode, not storing object")
-                dropPrivilage("\t")
+
                 return null
 
             } else {
                 log.trace("\tStoring object")
+                escalatePrivilage("\t")
                 newObject = objectFacade.storeObjectBean(mutableObjectBean, this.eventDispatchOption)
                 log.info(newObject.objectKey + " created.")
 
@@ -657,8 +690,6 @@ class InsightManagerForScriptrunner {
 
 
         }
-
-        dropPrivilage("\t")
 
         return newObject
     }
@@ -678,7 +709,6 @@ class InsightManagerForScriptrunner {
         ObjectBean objectBean = getObjectBean(object)
         ObjectAttributeBean newObjectAttributeBean = null
 
-        escalatePrivilage("\t")
 
         try {
 
@@ -691,13 +721,19 @@ class InsightManagerForScriptrunner {
                 //make sure everything is a string
                 value = value.collect { it.toString() }
 
+                escalatePrivilage("\t")
                 newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *value)
+                dropPrivilage("\t")
 
             } else {
+                escalatePrivilage("\t")
                 newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, value as String)
+                dropPrivilage("\t")
             }
 
+            escalatePrivilage("\t")
             ObjectAttributeBean oldAttributeBean = objectFacade.loadObjectAttributeBean(objectBean.id, attributeBean.id)
+            dropPrivilage("\t")
 
             // If attribute exist reuse the old id for the new attribute
             if (oldAttributeBean != null) {
@@ -709,7 +745,9 @@ class InsightManagerForScriptrunner {
                 return null
             } else {
 
+                escalatePrivilage("\t")
                 newObjectAttributeBean = objectFacade.storeObjectAttributeBean(newAttributeBean, this.eventDispatchOption)
+                dropPrivilage("\t")
 
                 if (newObjectAttributeBean != null) {
                     log.info("Successfully updated attribute")
@@ -749,7 +787,6 @@ class InsightManagerForScriptrunner {
 
         ArrayList<ObjectAttributeBean> newObjectAttributeBeans = []
 
-        escalatePrivilage("\t")
 
         try {
 
@@ -765,13 +802,19 @@ class InsightManagerForScriptrunner {
                     //make sure everything is a string
                     map.value = map.value.collect { it.toString() }
 
+                    escalatePrivilage("\t")
                     newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *map.value)
+                    dropPrivilage("\t")
 
                 } else {
+                    escalatePrivilage("\t")
                     newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, map.value as String)
+                    dropPrivilage("\t")
                 }
 
+                escalatePrivilage("\t")
                 ObjectAttributeBean oldAttributeBean = objectFacade.loadObjectAttributeBean(objectBean.id, attributeBean.id)
+                dropPrivilage("\t")
 
                 // If attribute exist reuse the old id for the new attribute
                 if (oldAttributeBean != null) {
@@ -783,7 +826,9 @@ class InsightManagerForScriptrunner {
                     return null
                 } else {
 
+                    escalatePrivilage("\t")
                     ObjectAttributeBean newObjectAttributeBean = objectFacade.storeObjectAttributeBean(newAttributeBean, this.eventDispatchOption)
+                    dropPrivilage("\t")
 
                     if (newObjectAttributeBean != null) {
                         newObjectAttributeBeans.add(newObjectAttributeBean)
@@ -820,12 +865,14 @@ class InsightManagerForScriptrunner {
         ObjectTypeAttributeBean objectTypeAttributeBean = null
 
         try {
+            escalatePrivilage("\t")
             if (attribute instanceof Integer) {
                 objectTypeAttributeBean = objectTypeAttributeFacade.loadObjectTypeAttributeBean(attribute as Integer)
             } else {
 
                 objectTypeAttributeBean = objectTypeAttributeFacade.loadObjectTypeAttribute(ObjectTypeId, attribute as String)
             }
+            dropPrivilage("\t")
 
 
             if (objectTypeAttributeBean == null) {
@@ -838,6 +885,8 @@ class InsightManagerForScriptrunner {
             }
         } catch (all) {
             log.error("\tError getting object attribute:" + all.message)
+            log.error("\tCurrent user during error:" + authContext.getLoggedInUser())
+            log.error("\tEscalated during error:" + currentlyEscalate)
             logRelevantStacktrace(all.stackTrace)
             throw all
 
@@ -887,16 +936,14 @@ class InsightManagerForScriptrunner {
     List getObjectAttributeValues(def Object, def Attribute) {
 
 
-        escalatePrivilage("\t")
-
         ObjectBean object = getObjectBean(Object)
         ObjectTypeAttributeBean objectTypeAttributeBean = getObjectTypeAttributeBean(Attribute, object.objectTypeId)
 
         log.info("Getting object (${object.objectKey}) attribute value (${objectTypeAttributeBean.name})")
 
         //if there are attribute beans, return them if not return empty list
+        escalatePrivilage("\t")
         List<ObjectAttributeValueBean> valueBeans = objectFacade.loadObjectAttributeBean(object.id, objectTypeAttributeBean.id) ? objectFacade.loadObjectAttributeBean(object.id, objectTypeAttributeBean.id).getObjectAttributeValueBeans() : []
-
         dropPrivilage("\t")
 
 
@@ -906,7 +953,10 @@ class InsightManagerForScriptrunner {
             if (it.referencedObjectBeanId != null) {
                 return getObjectBean(it.value)
             } else if (objectTypeAttributeBean.status) {
-                return configureFacade.loadStatusTypeBean(it.value as int).name
+                escalatePrivilage("\t")
+                String statusName = configureFacade.loadStatusTypeBean(it.value as int).name
+                dropPrivilage("\t")
+                return statusName
             } else {
                 return it.value
             }
@@ -932,9 +982,8 @@ class InsightManagerForScriptrunner {
 
         Map<String, List> returnData = [:]
 
-        escalatePrivilage("\t")
-
         ObjectBean object = getObjectBean(Object)
+
         ArrayList<ObjectAttributeBean> attributeBeans = object.getObjectAttributeBeans()
 
         if (Attributes != []) {
@@ -962,7 +1011,12 @@ class InsightManagerForScriptrunner {
                 if (it.referencedObjectBeanId != null) {
                     return getObjectBean(it.value)
                 } else if (objectTypeAttributeBean.status) {
-                    return configureFacade.loadStatusTypeBean(it.value as int).name
+
+                    escalatePrivilage("\t")
+                    String statusName = configureFacade.loadStatusTypeBean(it.value as int).name
+                    dropPrivilage("\t")
+                    return statusName
+
                 } else {
                     return it.value
                 }
@@ -976,8 +1030,6 @@ class InsightManagerForScriptrunner {
         }
 
 
-        dropPrivilage("\t")
-
         return returnData
     }
 
@@ -989,6 +1041,7 @@ class InsightManagerForScriptrunner {
  * @return A HTML string
  */
     String renderObjectToHtml(def Object, List Attributes = []) {
+
 
         ObjectBean object = getObjectBean(Object)
         Map<String, ArrayList> attributes = getObjectAttributeValues(object, Attributes)
@@ -1049,6 +1102,7 @@ class InsightManagerForScriptrunner {
                 "</p>"
 
 
+        dropPrivilage("\t")
         return returnHtml
 
     }
@@ -1062,27 +1116,22 @@ class InsightManagerForScriptrunner {
     boolean deleteObject(def object) {
 
         log.debug("Deleting object:" + object)
-        escalatePrivilage("\t")
-
-
         ObjectBean objectBean = getObjectBean(object)
-
 
         log.trace("\tObject id:" + objectBean.id)
 
         if (readOnly) {
             log.info("\tCurrently in readOnly mode, not deleting object $objectBean")
-            dropPrivilage("\t")
             return false
         } else {
+            escalatePrivilage("\t")
             objectFacade.deleteObjectBean(objectBean.id, this.eventDispatchOption)
+            dropPrivilage("\t")
             if (objectFacade.loadObjectBean(objectBean.id) == null) {
                 log.info("\tDeleted object $objectBean")
-                dropPrivilage("\t")
                 return true
             } else {
                 log.error("\tFailed to delete object $objectBean")
-                dropPrivilage("\t")
                 return false
             }
         }
@@ -1100,19 +1149,19 @@ class InsightManagerForScriptrunner {
 
         ArrayList<ObjectHistoryBean> historyBeans = []
 
-        escalatePrivilage("\t")
-
         ObjectBean objectBean = getObjectBean(object)
 
-
+        escalatePrivilage("\t")
         historyBeans = objectFacade.findObjectHistoryBean(objectBean.id)
-
-
         dropPrivilage("\t")
 
         return historyBeans
 
     }
+
+
+
+
 
 /**
  * This method will retrieve all SimplifiedAttachmentBeans belonging to an object.
@@ -1125,13 +1174,15 @@ class InsightManagerForScriptrunner {
         log.info("Will get attachments for object:" + object)
         ArrayList<SimplifiedAttachmentBean> objectAttachments = [:]
         ObjectBean objectBean
-        escalatePrivilage("\t")
+
 
         try {
 
             objectBean = getObjectBean(object)
             assert objectBean != null: "Could not find objectbean based on $object"
+            escalatePrivilage("\t")
             ArrayList<AttachmentBean> attachmentBeans = objectFacade.findAttachmentBeans(objectBean.id)
+            dropPrivilage("\t")
             log.debug("\tFound ${attachmentBeans.size()} attachment beans for the object")
 
             attachmentBeans.each {
@@ -1150,7 +1201,6 @@ class InsightManagerForScriptrunner {
         }
 
 
-        dropPrivilage("\t")
 
         log.info("\tSuccessfully retrieved ${objectAttachments.size()} attachments")
 
@@ -1174,7 +1224,6 @@ class InsightManagerForScriptrunner {
         log.info("Will add attachment ${file.name} to object:" + object)
 
         ObjectBean objectBean
-        escalatePrivilage("\t")
         File sourceFile
 
         try {
@@ -1193,7 +1242,9 @@ class InsightManagerForScriptrunner {
                     Files.copy(file.toPath(), sourceFile.toPath())
                 }
 
+                escalatePrivilage("\t")
                 AttachmentBean attachmentBean = objectFacade.addAttachmentBean(objectBean.id, sourceFile, attachmentName ?: file.name, Files.probeContentType(sourceFile.toPath()), attachmentComment)
+                dropPrivilage("\t")
 
                 assert attachmentBean != null && attachmentBean.nameInFileSystem != null
                 log.debug("\tThe attachment was successfully stored and given the name:" + attachmentBean.nameInFileSystem)
@@ -1243,8 +1294,9 @@ class InsightManagerForScriptrunner {
                 log.info("\tCurrently in readOnly mode, wont delete attachment")
                 return false
             } else {
+                escalatePrivilage("\t")
                 AttachmentBean deletedBean = objectFacade.deleteAttachmentBean(attachmentId)
-
+                dropPrivilage("\t")
                 log.info("\t" + deletedBean.filename + " was deleted from object ${deletedBean.objectId}")
                 return true
             }
@@ -1376,7 +1428,9 @@ class InsightManagerForScriptrunner {
             log.debug("\tWill import attachments from object directory:" + sourceObjectKey)
             log.debug("\tWill determine destination object with IQL:" + destinationIql)
 
+            escalatePrivilage("\t")
             ArrayList<ObjectBean> destinationObjects = iqlFacade.findObjects(destinationIql)
+            dropPrivilage("\t")
 
             if (destinationObjects.size() != 1) {
                 log.error("Could not determine destination object for attachments from source object: " + sourceObjectKey)
