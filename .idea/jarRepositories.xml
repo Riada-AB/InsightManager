@@ -22,6 +22,11 @@
       <option name="url" value="https://repo1.maven.org/maven2" />
     </remote-repository>
     <remote-repository>
+      <option name="id" value="jCenter" />
+      <option name="name" value="jCenter" />
+      <option name="url" value="https://jcenter.bintray.com" />
+    </remote-repository>
+    <remote-repository>
       <option name="id" value="atlassian-public" />
       <option name="name" value="atlassian-public" />
       <option name="url" value="https://packages.atlassian.com/content/groups/public/" />
