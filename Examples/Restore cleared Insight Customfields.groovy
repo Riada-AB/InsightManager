@@ -2,9 +2,11 @@ import com.atlassian.jira.bc.issue.search.SearchService
 import com.atlassian.jira.bc.issue.worklog.DeletedWorklog
 import com.atlassian.jira.component.ComponentAccessor
 import com.atlassian.jira.config.util.JiraHome
+import com.atlassian.jira.event.type.EventDispatchOption
 import com.atlassian.jira.issue.CustomFieldManager
 import com.atlassian.jira.issue.Issue
 import com.atlassian.jira.issue.IssueManager
+import com.atlassian.jira.issue.MutableIssue
 import com.atlassian.jira.issue.changehistory.ChangeHistoryManager
 import com.atlassian.jira.issue.fields.CustomField
 import com.atlassian.jira.issue.search.SearchResults
@@ -28,9 +30,9 @@ import org.apache.log4j.Logger
 
 
 //Setup the basics of RestoreInsightField
-boolean readOnly = false
-boolean runExport = true
-boolean runImport = false
+boolean readOnly = true
+boolean runExport = false
+boolean runImport = true
 
 RestoreInsightField restoreInsightField = new RestoreInsightField()
 restoreInsightField.readOnly = readOnly
@@ -46,8 +48,14 @@ if (runExport) {
     //This should be the field-ID of the field from which the export should be made.
     String insightFieldId = "customfield_12508"
 
-    File exportedJson = restoreInsightField.exportFromBackup(jql, insightFieldId, ["OLD KEY"] as ArrayList)
+    File exportedJson = restoreInsightField.exportFromBackup(jql, insightFieldId, ["Article Number"] as ArrayList)
     log.info("The export has been placed here:" + exportedJson.canonicalPath)
+}
+
+if (runImport) {
+
+    restoreInsightField.importFromBackup()
+
 }
 
 
@@ -66,7 +74,7 @@ class RestoreInsightField {
 
     public ApplicationUser serviceUser
     public boolean readOnly = true
-    Logger log = Logger.getLogger("restore.insight.fields")
+    Logger log = Logger.getLogger("restore.insight.fields") //tail -F /var/atlassian/application-data/jira/log/atlassian-jira.log | sed -n -e 's/^.*insight.fields]//p'
 
 
     RestoreInsightField() {
@@ -76,16 +84,110 @@ class RestoreInsightField {
 
     }
 
-    void importFromBackup(String fileName = "exportedInsightFieldValues.json") {
+    void importFromBackup(boolean overwrite = false, String fileName = "exportedInsightFieldValues.json") {
 
-        File exportJson = new File(jiraImportPath + "/" + fileName)
-        assert exportJson.exists(): "The export cant be found:" + exportJson.canonicalPath
-        new JsonSlurper().parse(exportJson)
+        log.info("Will import insight field values from:" + fileName)
+        File exportJsonFile = new File(jiraImportPath + "/" + fileName)
+        assert exportJsonFile.exists(): "The export cant be found:" + exportJsonFile.canonicalPath
+
+        log.debug("\tSuccessfully found export file:" + exportJsonFile.canonicalPath)
+
+        ArrayList<Map> exportJson = new JsonSlurper().parse(exportJsonFile) as ArrayList<Map>
+
+        log.debug("\tSuccessfully read the export file")
+
+        ArrayList<InsightFieldValue> exportedFieldValues = exportJson.collect { new InsightFieldValue(it) }
+        assert exportedFieldValues.size() == exportJson.size()
+
+        log.debug("\tSuccessfully parsed the export file")
+        log.trace("\t\tFound ${exportedFieldValues.size()} field values to import")
+
+        log.error("WARNING JUST EVALUATING 10 FIELD VALUES")
+        Collections.shuffle(exportedFieldValues)
+        exportedFieldValues[0..9].each { exportedFieldValue ->
+
+            log.info("Determining new objects for issue:" + exportedFieldValue.issue + ", field:\"" + exportedFieldValue.field.name + "\" (${exportedFieldValue.field.id})")
+            log.debug("\tPrevious field value:" + exportedFieldValue.value.join(","))
+
+            ArrayList<ObjectBean> newObjectBeans = []
+            exportedFieldValue.valueExpanded.each { originalObjects ->
+
+
+                originalObjects.each {
+                    log.debug("\tDetermining the new object key for " + it.key)
+                    log.trace("\t"*2 + "Based on object information:")
+                    log.trace("\t"*3 + "Attribute values:" + it.value.attributes)
+                    log.trace("\t"*3 + "ObjectTypeId:" + it.value.objectTypeId)
+                    log.trace("\t"*3 + "SchemaId:" + it.value.schemaId)
+
+
+                    String iql = "ObjectTypeId = ${it.value.objectTypeId}"
+
+                    it.value.attributes.each { attributeEntry ->
+                        iql += " AND \"${attributeEntry.key}\" IN (${attributeEntry.value.collect { "\"$it\"" }.join(",")})"
+                    }
+
+                    log.trace("\t\tUsing the following IQL in scheme ${it.value.schemaId}:" + iql)
+                    ArrayList<ObjectBean> objectBeans = im.iql(it.value.schemaId as int, iql)
+
+                    log.trace("\t"*2 + "Determined the new object to be:" + objectBeans.join(","))
+
+                    assert objectBeans.size() == 1: "Could not determine new Object based on:" + it.toString()
+
+                    newObjectBeans += objectBeans
+
+
+                }
+
+            }
+
+            assert newObjectBeans.size() ==  exportedFieldValue.valueExpanded.size()
+
+            log.info("\tDetermined the new objects to be placed in the field to be::" + newObjectBeans.join(","))
+
+            if (readOnly) {
+                log.info("\tCurrently in readOnly mode or would update issue " + exportedFieldValue.issue)
+                log.debug("\t\tField:" + exportedFieldValue.field.name + " ($exportedFieldValue.field.id)")
+                log.debug("\t\tValue:" + newObjectBeans.objectKey.join(","))
+            }else {
+
+                log.info("\tUpdating issue " + exportedFieldValue.issue)
+                log.debug("\t\tField:" + exportedFieldValue.field.name + " ($exportedFieldValue.field.id)")
+                log.debug("\t\tValue:" + newObjectBeans.objectKey.join(","))
+
+                ArrayList<ObjectBean> currentFieldValue = []
+                if (!overwrite) {
+                    currentFieldValue =  exportedFieldValue.issue.getCustomFieldValue(exportedFieldValue.field)
+                }
+
+                if (overwrite || currentFieldValue.isEmpty()) {
+                    exportedFieldValue.issue.setCustomFieldValue(exportedFieldValue.field, newObjectBeans)
+                    exportedFieldValue.issue = issueManager.updateIssue(serviceUser,exportedFieldValue.issue, EventDispatchOption.ISSUE_UPDATED, false) as MutableIssue
+
+                    assert exportedFieldValue.issue != null
+
+                    log.info("\tIssue Successfully updated")
+
+                }else {
+
+                    log.info("\tCancled update of issue (${exportedFieldValue.issue}), the field already has a value:" + currentFieldValue.join(","))
+
+                }
+
+
+            }
+
+
+        }
+
+        log.info("Finished importing insight field values")
+
 
     }
 
 
     //jqlMatchingIssues This should match all the related issues and check that the "insightField IS NOT EMPTY"
+    //attributesToExport should be unique non-empty attributes
     File exportFromBackup(String jqlMatchingIssues, String insightFieldId, String fileName = "exportedInsightFieldValues.json", ArrayList attributesToExport) {
 
         log.info("Exporting field values from a previous back")
@@ -93,8 +195,9 @@ class RestoreInsightField {
         log.info("\tGetting field values from customField:" + insightFieldId)
 
         File exportJson = new File(jiraExportPath + "/" + fileName)
-        assert !exportJson.exists(): "The export file already exists:" + exportJson.canonicalPath
+
         if (!readOnly) {
+            assert !exportJson.exists(): "The export file already exists:" + exportJson.canonicalPath
             exportJson.parentFile.mkdir()
         }
 
@@ -131,23 +234,45 @@ class RestoreInsightField {
 
     class InsightFieldValue {
 
-        Issue issue
+        MutableIssue issue
         CustomField field
         ArrayList<ObjectBean> value
-        Map valueExpanded = [:]
+        Map<String, Map> valueExpanded = [:]
 
         InsightFieldValue(Issue issue, CustomField field, ArrayList attributesToExpand = []) {
 
-            this.issue = issue
+            this.issue = issue as MutableIssue
             this.field = field
 
             value = this.issue.getCustomFieldValue(this.field) as ArrayList<ObjectBean>
 
+
             value.each { objectBean ->
 
-                valueExpanded.put(objectBean.objectKey, im.getObjectAttributeValues(objectBean, attributesToExpand))
+                Integer schemaId = im.objectTypeFacade.loadObjectType(objectBean.objectTypeId).objectSchemaId
+
+                Map attributes = im.getObjectAttributeValues(objectBean, attributesToExpand)
+
+                assert !attributes.isEmpty()
+                assert !attributes.containsValue("") : "attributesToExport must only result in non empty attribute values"
+                assert !attributes.containsValue(null) : "attributesToExport must only result in non empty attribute values"
+                assert !attributes.containsValue([]) : "attributesToExport must only result in non empty attribute values"
+
+                valueExpanded.put(objectBean.objectKey, [attributes: attributes, objectTypeId: objectBean.objectTypeId, schemaId: schemaId])
+
+
             }
 
+            ObjectBean test
+
+        }
+
+        InsightFieldValue(Map fieldValueMap) {
+
+            issue = issueManager.getIssueByCurrentKey(fieldValueMap.issue as String)
+            field = customFieldManager.getCustomFieldObject(fieldValueMap.field as String)
+            value = fieldValueMap.value as ArrayList
+            valueExpanded = fieldValueMap.valueExpanded as Map
 
         }
 
