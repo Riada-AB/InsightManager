@@ -26,6 +26,8 @@ import jline.internal.InputStreamReader
 import org.apache.groovy.json.internal.LazyMap
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
+import org.junit.runner.JUnitCore
+import org.junit.runner.Result
 import spock.config.ConfigurationException
 import spock.lang.Shared
 import spock.lang.Specification
@@ -41,14 +43,9 @@ import java.util.concurrent.TimeoutException
 
 
 
-
-String jiraAdminUsername = "anders"
-String jiraAdminPassword = jiraAdminUsername
-
 Logger log = Logger.getLogger("test.report")
 log.setLevel(Level.ALL)
 
-new SpecHelper().validateAndCacheSettings()
 
 /*
 setupTestEnvironment(jiraAdminUsername, jiraAdminPassword)
@@ -67,19 +64,6 @@ static void setupTestEnvironment(String jiraAdminUsername, String jiraAdminPassw
 
 
 /*
-InsightManagerForScriptRunnerSpecificationsV2 spec = new InsightManagerForScriptRunnerSpecificationsV2()
-Method createNewGoldenSchemaImage = InsightManagerForScriptRunnerSpecificationsV2.class.getDeclaredMethod("createNewGoldenSchemaImage", int.class)
-Method setupSpec = InsightManagerForScriptRunnerSpecificationsV2.class.getDeclaredMethod("setupSpec")
-setupSpec.setAccessible(true)
-
-setupSpec.invoke(spec)
-createNewGoldenSchemaImage.invoke(spec, 1)
-
- */
-
-//spec.createNewGoldenSchemaImage(1)
-
-/*
 JUnitCore jUnitCore = new JUnitCore()
 
 //Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecifications.class, 'Test readOnly mode of attachment operations'))
@@ -92,16 +76,23 @@ spockResult.failures.each { log.error(it) }
 spockResult.each { log.info("Result:" + it.toString()) }
 
 log.info("Was successful:" + spockResult.wasSuccessful())
+*/
 
- */
+SpecHelper specHelper = new SpecHelper()
+specHelper.validateAndCacheSettings()
+specHelper.getObjectSchemaRoles(9)
+
 
 class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
 
+    /*
     @Shared
     String jiraAdminUserName = "anders"
     @Shared
     String jiraAdminPassword = "anders"
+
+     */
 
 
     @Shared
@@ -121,6 +112,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
     @Shared
     Logger log = Logger.getLogger(this.class)
+    /*
     @Shared
     File jiraHome = ComponentAccessor.getComponentOfType(JiraHome).getHome()
     @Shared
@@ -129,6 +121,8 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
     ApplicationUser userRunningTheScript
     @Shared
     ApplicationUser jiraAdminUser
+
+     */
 
     @Shared
     SpecHelper specHelper = new SpecHelper()
@@ -146,12 +140,11 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         userManager = ComponentAccessor.getUserManager()
         jiraAuthenticationContext = ComponentAccessor.getJiraAuthenticationContext()
 
-        userRunningTheScript = jiraAuthenticationContext.getLoggedInUser()
-        jiraAdminUser = userManager.getUserByName(jiraAdminUserName)
+        assert specHelper.validateAndCacheSettings()
 
 
-        if (userRunningTheScript == jiraAdminUser) {
-            log.warn("The JiraAdminUsername and the user running this script should ideally not be the same.")
+        if (specHelper.userRunningTheScript == specHelper.jiraAdminUser) {
+            log.warn("The jiraAdmin and the user running this script should ideally not be the same.")
         }
     }
 
@@ -161,26 +154,49 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
         when: "Testing with username"
         InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
-        im.setServiceAccount(jiraAdminUser.username)
+        im.setServiceAccount(specHelper.jiraAdminUser.username)
 
         then: "Checking that im.initialUser and im.serviceUser was set correctly"
 
-        im.initialUser == userRunningTheScript
-        im.serviceUser == jiraAdminUser
+        im.initialUser == specHelper.userRunningTheScript
+        im.serviceUser == specHelper.jiraAdminUser
 
         log.info("setServiceAccount when supplied with a username works as intended")
 
 
         when: "Testing with applicationUser"
         im = new InsightManagerForScriptrunner()
-        im.setServiceAccount(jiraAdminUser)
+        im.setServiceAccount(specHelper.jiraAdminUser)
 
         then: "Checking that im.initialUser and im.serviceUser was set correctly"
 
-        im.initialUser == userRunningTheScript
-        im.serviceUser == jiraAdminUser
+        im.initialUser == specHelper.userRunningTheScript
+        im.serviceUser == specHelper.jiraAdminUser
 
         log.info("setServiceAccount when supplied with a applicationUser works as intended")
+
+
+    }
+
+
+    def "Verify IQL searching"(String iql, long matchSize, ApplicationUser user) {
+        //def "Verify IQL searching"() {
+
+        setup:
+        ObjectSchemaBean objectSchema = specHelper.setupGoldenObjectSchema()
+
+        when:
+        int i = 1
+
+        then:
+        i == 1
+
+
+        where:
+        iql                                           | matchSize | user
+        "ObjectType = \"Object With All Attributes\"" | 2         | specHelper.jiraAdminUser
+        "ObjectType = \"Object With All Attributes\"" | 2         | specHelper.insightSchemaManager
+        "ObjectType = \"Object With All Attributes\"" | 2         | specHelper.insightSchemaUser
 
 
     }
@@ -213,9 +229,9 @@ class SpecHelper {
     Map settings
 
 
-
     ApplicationUser jiraAdminUser
     String jiraAdminPassword
+    ApplicationUser userRunningTheScript
     ApplicationUser insightSchemaUser
     ApplicationUser insightSchemaManager
     ApplicationUser projectAdmin
@@ -236,7 +252,7 @@ class SpecHelper {
         insightPermissionFacade = ComponentAccessor.getOSGiComponentInstanceOfType(insightPermissionFacadeClass) as InsightPermissionFacadeImpl
 
 
-
+        userRunningTheScript = ComponentAccessor.getJiraAuthenticationContext().loggedInUser
 
 
         Map defaultSettings = [
@@ -299,20 +315,20 @@ class SpecHelper {
         //Check the supplied projectAdmin
         projectAdmin = userManager.getUserByName(settings.jsdProject.projectAdmin)
         assert projectAdmin != "Could not find the supplied project admin: " + settings.jsdProject.projectAdmin
-        assert projectRoleManager.isUserInProjectRole(projectAdmin, projectRoleManager.getProjectRole("Administrators"), jsdProject) : "The supplied project admin ($projectAdmin) is not admin of the project" + jsdProject.name
+        assert projectRoleManager.isUserInProjectRole(projectAdmin, projectRoleManager.getProjectRole("Administrators"), jsdProject): "The supplied project admin ($projectAdmin) is not admin of the project" + jsdProject.name
 
         //Chech the supplied JSD Customer
         projectCustomer = userManager.getUserByName(settings.jsdProject.projectCustomer)
-        assert projectRoleManager.getProjectRoles(projectCustomer,jsdProject).isEmpty() : "The JSD customer should not have any project roles in the JSD project:" + projectCustomer
+        assert projectRoleManager.getProjectRoles(projectCustomer, jsdProject).isEmpty(): "The JSD customer should not have any project roles in the JSD project:" + projectCustomer
 
 
         //Check the supplied JIRA admin
         jiraAdminUser = userManager.getUserByName(settings.jiraGlobal.adminUsername)
         jiraAdminPassword = settings.jiraGlobal.adminPassword
-        assert jiraAdminUser != null : "Could not find adminUser:" + settings.jiraGlobal.adminUsername
-        assert  jiraAdminPassword != null : "Jira adminPassword not supplied"
+        assert jiraAdminUser != null: "Could not find adminUser:" + settings.jiraGlobal.adminUsername
+        assert jiraAdminPassword != null: "Jira adminPassword not supplied"
         assert insightPermissionFacade.hasAdminPermission(jiraAdminUser): "The jiraGlobal.adminUsername is not Insight Admin"
-        assert globalPermissionManager.hasPermission(GlobalPermissionKey.ADMINISTER, jiraAdminUser) : "The supplied JIRA global admin, is not admin"
+        assert globalPermissionManager.hasPermission(GlobalPermissionKey.ADMINISTER, jiraAdminUser): "The supplied JIRA global admin, is not admin"
 
         //Check the supplied Insight Schema
         objectSchemaBean = objectSchemaFacade.loadObjectSchema(settings.insight.objectSchemaId)
@@ -320,16 +336,14 @@ class SpecHelper {
 
         //Check the supplied schema manager
         insightSchemaManager = userManager.getUserByName(settings.insight.schemaManager)
-        assert insightSchemaManager != null : "Could not find schema manager:" + settings.insight.schemaManager
+        assert insightSchemaManager != null: "Could not find schema manager:" + settings.insight.schemaManager
         assert insightPermissionFacade.hasInsightSchemaManagerPermission(insightSchemaManager, objectSchemaBean.id): "Theinsight.schemaManager should have Admin permissions in Insight scheme " + objectSchemaBean.name
 
         //Check the supplied schemaUser
         insightSchemaUser = userManager.getUserByName(settings.insight.schemaUser)
-        assert insightSchemaUser != null : "Could not find schema user:" + settings.insight.schemaUser
+        assert insightSchemaUser != null: "Could not find schema user:" + settings.insight.schemaUser
         assert !insightPermissionFacade.hasAdminPermission(insightSchemaUser): "The insight.schemaUser should not have Admin permissions in Insight"
         assert insightPermissionFacade.hasInsightObjectSchemaViewPermission(insightSchemaUser, objectSchemaBean.id): "The insight.schemaUser should have user permissions in Insight scheme " + objectSchemaBean.name
-
-
 
 
         log.info("The settings file appears valid and has been cached")
@@ -355,7 +369,7 @@ class SpecHelper {
 
     }
 
-    ObjectSchemaBean setupGoldenObjectSchema(String schemaName, String schemaKey) {
+    ObjectSchemaBean setupGoldenObjectSchema(String schemaName = "SPOC Testing of IM", String schemaKey = "SPIM") {
 
         String imageUrl = "https://github.com/Riada-AB/InsightManager-TestingResources/raw/master/SPOC-golden-image.zip"
 
@@ -368,7 +382,7 @@ class SpecHelper {
 
         log.info("Downloading to:" + destinationFolder.canonicalPath)
 
-        File imageZip = downloadFile(imageUrl, destinationFolder.canonicalPath, jiraAdminUsername, jiraAdminPassword)
+        File imageZip = downloadFile(imageUrl, destinationFolder.canonicalPath, jiraAdminUser.username, jiraAdminPassword)
 
         log.info("Download complete, moving Insight import folder")
         imageZip = moveFile(imageZip.canonicalPath, jiraHome.canonicalPath + "/import/insight/" + imageZip.name)
@@ -527,6 +541,42 @@ class SpecHelper {
         }
     }
 
+
+    LazyMap httpGetJson(String url, String username = "", String password = "") {
+
+
+        HttpURLConnection connection = setupConnection(url, username, password)
+        try {
+
+            connection.setRequestMethod("GET")
+
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+
+                LazyMap json = new JsonSlurper().parse(connection.getInputStream()) as LazyMap
+
+                return json
+
+            } else {
+                throw new ConnectException("Unsupported response (" + connection.responseCode + "(${connection.responseMessage})) from " + url)
+            }
+        } catch (all) {
+
+            log.error("There was an error in the sendGetJson method")
+            log.error("\tUrl:" + url)
+            if (connection != null) {
+                log.error("\tResponse code:" + connection.responseCode)
+                log.error("\tResponse Message:" + connection.responseMessage)
+                log.error("\tErrorStream:" + readErrorStream(connection))
+            }
+            log.error("\tException:" + all.message)
+
+            throw all
+
+
+        }
+    }
+
+
     //File is expected to be placed in $JIRAHOME/import/insight
     ObjectSchemaBean importScheme(String fileName, String objectSchemaName, String objectSchemaKey, String objectSchemaDescription = "", boolean includeObjects = true, boolean importAttachments = true, boolean importObjectAvatars = true) {
 
@@ -549,7 +599,7 @@ class SpecHelper {
             log.debug(it.key + ":" + it.value)
         }
 
-        LazyMap result = httpPostJson(inputJson, jiraBaseUrl + "/rest/insight/1.0/objectschemaimport/import/server", jiraAdminUsername, jiraAdminPassword)
+        LazyMap result = httpPostJson(inputJson, jiraBaseUrl + "/rest/insight/1.0/objectschemaimport/import/server", jiraAdminUser.username, jiraAdminPassword)
 
         log.debug("Got response JSON from Insight:")
         result.each {
@@ -588,7 +638,7 @@ class SpecHelper {
             log.debug(it.key + ":" + it.value)
         }
 
-        LazyMap result = httpPostJson(json, this.jiraBaseUrl + "/rest/insight/1.0/objectschemaexport/export/server", jiraAdminUsername, jiraAdminPassword)
+        LazyMap result = httpPostJson(json, this.jiraBaseUrl + "/rest/insight/1.0/objectschemaexport/export/server", jiraAdminUser.username, jiraAdminPassword)
 
         log.debug("Got response JSON from Insight:")
         result.each {
@@ -624,6 +674,19 @@ class SpecHelper {
         throw new TimeoutException("Timed out waiting for export to finish, gave up after:" + (new Date().toInstant().toEpochMilli() - startOfImport.toEpochMilli()) + " ms")
 
 
+    }
+
+
+    Map getObjectSchemaRoles(long schemaId) {
+
+        LazyMap httpResult = httpGetJson(this.jiraBaseUrl + "/rest/insight/1.0/config/role/objectschema/" + schemaId, jiraAdminUser.username, jiraAdminPassword)
+
+        Map returnMap = [:]
+
+        httpResult.each {
+            returnMap.put(it.key, it.value.find("\\d+\$"))
+        }
+        log.info("Http Result:" + returnMap)
     }
 
 
