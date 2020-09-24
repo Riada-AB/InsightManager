@@ -30,7 +30,7 @@ import org.apache.log4j.Logger
 
 
 //Setup the basics of RestoreInsightField
-boolean readOnly = true
+boolean readOnly = false
 boolean runExport = false
 boolean runImport = true
 
@@ -102,9 +102,10 @@ class RestoreInsightField {
         log.debug("\tSuccessfully parsed the export file")
         log.trace("\t\tFound ${exportedFieldValues.size()} field values to import")
 
-        log.error("WARNING JUST EVALUATING 10 FIELD VALUES")
-        Collections.shuffle(exportedFieldValues)
-        exportedFieldValues[0..9].each { exportedFieldValue ->
+        //log.error("WARNING JUST EVALUATING LIMITED FIELD VALUES")
+        //Collections.shuffle(exportedFieldValues)
+        //exportedFieldValues[0..10].each { exportedFieldValue ->
+        exportedFieldValues.each { exportedFieldValue ->
 
             log.info("Determining new objects for issue:" + exportedFieldValue.issue + ", field:\"" + exportedFieldValue.field.name + "\" (${exportedFieldValue.field.id})")
             log.debug("\tPrevious field value:" + exportedFieldValue.value.join(","))
@@ -160,7 +161,7 @@ class RestoreInsightField {
                     currentFieldValue =  exportedFieldValue.issue.getCustomFieldValue(exportedFieldValue.field)
                 }
 
-                if (overwrite || currentFieldValue.isEmpty()) {
+                if (overwrite || currentFieldValue == null) {
                     exportedFieldValue.issue.setCustomFieldValue(exportedFieldValue.field, newObjectBeans)
                     exportedFieldValue.issue = issueManager.updateIssue(serviceUser,exportedFieldValue.issue, EventDispatchOption.ISSUE_UPDATED, false) as MutableIssue
 
