@@ -7,17 +7,14 @@ import com.atlassian.jira.project.Project
 import com.atlassian.jira.project.ProjectManager
 import com.atlassian.jira.security.GlobalPermissionManager
 import com.atlassian.jira.security.JiraAuthenticationContext
-import com.atlassian.jira.security.roles.ProjectRole
 import com.atlassian.jira.security.roles.ProjectRoleManager
 import com.atlassian.jira.user.ApplicationUser
 import com.atlassian.jira.user.util.UserManager
 import com.atlassian.jira.util.BaseUrl
-import com.onresolve.scriptrunner.canned.jira.utils.servicedesk.ServiceDeskUtils
 import com.onresolve.scriptrunner.runner.customisers.WithPlugin
 import com.riadalabs.jira.plugins.insight.channel.external.api.facade.impl.IQLFacadeImpl
 import com.riadalabs.jira.plugins.insight.channel.external.api.facade.impl.InsightPermissionFacadeImpl
 import com.riadalabs.jira.plugins.insight.channel.external.api.facade.impl.ObjectSchemaFacadeImpl
-import com.riadalabs.jira.plugins.insight.services.core.impl.ServiceDeskService
 import com.riadalabs.jira.plugins.insight.services.model.ObjectSchemaBean
 import groovy.json.JsonBuilder
 import groovy.json.JsonOutput
@@ -26,8 +23,6 @@ import jline.internal.InputStreamReader
 import org.apache.groovy.json.internal.LazyMap
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
-import org.junit.runner.JUnitCore
-import org.junit.runner.Result
 import spock.config.ConfigurationException
 import spock.lang.Shared
 import spock.lang.Specification
@@ -47,20 +42,15 @@ Logger log = Logger.getLogger("test.report")
 log.setLevel(Level.ALL)
 
 
-/*
-setupTestEnvironment(jiraAdminUsername, jiraAdminPassword)
+SpecHelper specHelper = new SpecHelper()
+specHelper.validateAndCacheSettings()
+ObjectSchemaBean testSchema = specHelper.setupTestObjectSchema("Test Schema", "TS")
+//specHelper.objectSchemaFacade.deleteObjectSchemaBean(testSchema.id)
 
-
-static void setupTestEnvironment(String jiraAdminUsername, String jiraAdminPassword) {
-
-    SpecHelper specHelper = new SpecHelper(jiraAdminUsername, jiraAdminPassword)
-    specHelper.setupGoldenObjectSchema("Testing 1", "testar1")
-
-    /**
-     * Manual Steps:
-     *  Create a JSD project, use the "Basic" template
-     */
-//}
+/**
+ * Manual Steps:
+ *  Create a JSD project, use the "Basic" template
+ */
 
 
 /*
@@ -77,11 +67,14 @@ spockResult.each { log.info("Result:" + it.toString()) }
 
 log.info("Was successful:" + spockResult.wasSuccessful())
 */
-
+/*
 SpecHelper specHelper = new SpecHelper()
 specHelper.validateAndCacheSettings()
-specHelper.getObjectSchemaRoles(9)
+//specHelper.getObjectSchemaRoles(9)
+//specHelper.getObjectSchemaRoleActors(9)
+specHelper.setSchemaRoleActors(9, "Object Schema Managers", ["jira-administrators"], ["JIRAUSER10301"])
 
+ */
 
 class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
@@ -183,7 +176,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         //def "Verify IQL searching"() {
 
         setup:
-        ObjectSchemaBean objectSchema = specHelper.setupGoldenObjectSchema()
+        ObjectSchemaBean objectSchema = specHelper.setupTestObjectSchema()
 
         when:
         int i = 1
@@ -369,11 +362,12 @@ class SpecHelper {
 
     }
 
-    ObjectSchemaBean setupGoldenObjectSchema(String schemaName = "SPOC Testing of IM", String schemaKey = "SPIM") {
+    ObjectSchemaBean setupTestObjectSchema(String schemaName = "SPOC Testing of IM", String schemaKey = "SPIM", boolean useCachedGoldenImage = true) {
 
         String imageUrl = "https://github.com/Riada-AB/InsightManager-TestingResources/raw/master/SPOC-golden-image.zip"
 
         log.info("Setting up new Golden ObjectSchema")
+
         log.info("Download Schema zip from:" + imageUrl)
 
 
@@ -392,6 +386,13 @@ class SpecHelper {
         ObjectSchemaBean newSchema = importScheme(imageZip.name, schemaName, schemaKey)
 
         log.info("The new schema got id:" + newSchema.id)
+
+        log.info("Setting Schema managers to:" + insightSchemaManager)
+        log.info("Setting Schema Users to:" + insightSchemaUser)
+        setSchemaRoleActors(newSchema.id, "Object Schema Managers", [] as ArrayList, [insightSchemaManager.key] as ArrayList)
+        setSchemaRoleActors(newSchema.id, "Object Schema Users", [] as ArrayList, [insightSchemaUser.key] as ArrayList)
+
+        log.info("Finished setting up test schema")
         return newSchema
     }
 
@@ -542,6 +543,53 @@ class SpecHelper {
     }
 
 
+    LazyMap httpPutJson(LazyMap json, String url, String username = "", String password = "") {
+
+        HttpURLConnection connection = setupConnection(url, username, password)
+
+
+        try {
+            connection.setDoOutput(true)
+            connection.setRequestMethod("PUT")
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setRequestProperty("Accept", "application/json")
+            byte[] jsonByte = new JsonBuilder(json).toPrettyString().getBytes("UTF-8")
+
+            connection.outputStream.write(jsonByte, 0, jsonByte.length)
+
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+
+                def rawReturn = new JsonSlurper().parse(connection.getInputStream())
+                LazyMap outJson
+                if (rawReturn instanceof ArrayList) {
+                    outJson = ["data": rawReturn] as LazyMap
+                } else {
+                    outJson = rawReturn as LazyMap
+                }
+
+
+                return outJson
+
+            } else {
+                throw new ConnectException("Unsupported response (" + connection.responseCode + "(${connection.responseMessage})) from " + url)
+            }
+        } catch (all) {
+
+            log.error("There was an error in the exportScheme method")
+            log.error("\tUrl:" + connection.URL.toString())
+            if (connection != null) {
+                log.error("\tResponse code:" + connection.responseCode)
+                log.error("\tResponse Message:" + connection.responseMessage)
+                log.error("\tErrorStream:" + readErrorStream(connection))
+            }
+            log.error("\tException:" + all.message)
+
+            throw all
+
+
+        }
+    }
+
     LazyMap httpGetJson(String url, String username = "", String password = "") {
 
 
@@ -677,16 +725,66 @@ class SpecHelper {
     }
 
 
-    Map getObjectSchemaRoles(long schemaId) {
+    Map setSchemaRoleActors(long schemaId, String roleName, ArrayList<String> groupNames, ArrayList<String> userKeys) {
+
+
+        Integer roleId = getObjectSchemaRoles(schemaId).find { it.key == roleName }.value
+        Map categorisedActors = [
+                "atlassian-user-role-actor" : userKeys,
+                "atlassian-group-role-actor": groupNames
+
+        ]
+
+
+        LazyMap postJson = [
+                id               : roleId,
+                categorisedActors: categorisedActors
+        ]
+
+        LazyMap newRoleActors = httpPutJson(postJson, this.jiraBaseUrl + "/rest/insight/1.0/config/role/" + roleId, jiraAdminUser.username, jiraAdminPassword)
+
+        assert newRoleActors.name == roleName: "Error setting schema role actors for schema $schemaId"
+        assert newRoleActors.actors.name.containsAll(userKeys)
+
+        return newRoleActors
+
+    }
+
+    Map getObjectSchemaRoleActors(long schemaId) {
+
+        Map schemaRoles = getObjectSchemaRoles(schemaId)
+        Map returnMap = [:]
+        schemaRoles.each { roleName, roleId ->
+
+            LazyMap actorResult = httpGetJson(this.jiraBaseUrl + "/rest/insight/1.0/config/role/" + roleId, jiraAdminUser.username, jiraAdminPassword)
+
+
+            assert actorResult.id == roleId: "Error retrieving actors for role $roleName in schema $schemaId"
+
+            returnMap.put(roleName, [
+                    id                 : roleId,
+                    groupRoleActorNames: actorResult.actors.findAll { it.type == "atlassian-group-role-actor" }.name,
+                    userRoleActorKeys  : actorResult.actors.findAll { it.type == "atlassian-user-role-actor" }.name
+            ])
+
+        }
+
+        log.debug(returnMap.toPrettyJsonString())
+        return returnMap
+    }
+
+
+    Map<String, Integer> getObjectSchemaRoles(long schemaId) {
 
         LazyMap httpResult = httpGetJson(this.jiraBaseUrl + "/rest/insight/1.0/config/role/objectschema/" + schemaId, jiraAdminUser.username, jiraAdminPassword)
 
         Map returnMap = [:]
 
         httpResult.each {
-            returnMap.put(it.key, it.value.find("\\d+\$"))
+            returnMap.put(it.key, it.value.find("\\d+\$") as Integer)
         }
-        log.info("Http Result:" + returnMap)
+
+        return returnMap as Map //[Object Schema Managers:62, Object Schema Developers:63, Object Schema Users:64]
     }
 
 
