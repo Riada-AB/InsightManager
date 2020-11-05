@@ -31,6 +31,7 @@ import org.apache.groovy.json.internal.LazyMap
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
 import org.junit.runner.JUnitCore
+import org.junit.runner.Request
 import org.junit.runner.Result
 import spock.config.ConfigurationException
 import spock.lang.Shared
@@ -39,7 +40,9 @@ import spock.lang.Specification
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.time.Duration
 import java.time.Instant
+import java.time.LocalDateTime
 import java.util.concurrent.TimeoutException
 import java.util.regex.Matcher
 import java.util.regex.Pattern
@@ -74,8 +77,8 @@ return
 
 JUnitCore jUnitCore = new JUnitCore()
 
-//Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecifications.class, 'Test readOnly mode of attachment operations'))
-Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
+Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test creation of objects with all Attribute Types'))
+//Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
 
 
 spockResult.failures.each { log.error(it) }
@@ -275,6 +278,68 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         "ObjectType = \"Object With All Attributes\"" | 0         | specHelper.projectCustomer      | specHelper.projectCustomer
         "ObjectType = \"Object With All Attributes\"" | 2         | specHelper.projectCustomer      | specHelper.jiraAdminUser
 
+
+    }
+
+    def "Test creation of objects with all Attribute Types"(String objectTypeName, Map attributeValuesToSet, Map expectedAttributeValues) {
+
+        setup:
+        log.info("Will test creation of objects with all attribute types")
+        InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
+        im.log.setLevel(Level.WARN)
+
+        when:
+        log.debug("\tCreating an object:")
+        log.debug("\t" * 2 + "ObjectType:" + objectTypeName)
+        log.debug("\t" * 2 + "Attributes:" + attributeValuesToSet)
+
+        ObjectBean newObject = im.createObject(testSchema.id, objectTypeName, attributeValuesToSet)
+        log.debug("\tThe new objects key is:" + newObject)
+
+        Map newObjectValues = im.getObjectAttributeValues(newObject, attributeValuesToSet.keySet() as ArrayList)
+        log.debug("\tThe new objects attribute values are:" + newObjectValues)
+
+        then:
+
+        newObjectValues.each { newValue ->
+
+            Map.Entry<String, ArrayList> expectedValue = expectedAttributeValues.find { it.key == newValue.key }
+
+
+            if (expectedValue.value.first() instanceof Date) {
+
+                log.debug("\t\tTesting if the new Date value ${newValue.value} equals the expected Date value${expectedValue.value}")
+
+                Date expectedDate = expectedValue.value.first() as Date
+                Date realDate = newValue.value.first() as Date
+
+                Integer expectedTimestamp = realDate.getTime().div(1000).toInteger()
+                Integer realTimestamp = expectedDate.getTime().div(1000).toInteger()
+
+                assert expectedTimestamp == realTimestamp
+
+            } else {
+                log.debug("\t\tTesting if the new value ${newValue.value} equals ${expectedValue.value}")
+                assert newValue.value == expectedValue.value
+            }
+
+
+        }
+        log.info("\tThe attributes where set successfully")
+
+
+        where:
+        objectTypeName               | attributeValuesToSet                                                 | expectedAttributeValues
+        "Object With All Attributes" | [Name: "Testing Boolean with true boolean object", Boolean: true]    | [Name: [attributeValuesToSet.Name], Boolean: [true]]
+        "Object With All Attributes" | [Name: "Testing Boolean with true string object", Boolean: "true"]   | [Name: [attributeValuesToSet.Name], Boolean: [true]]
+        "Object With All Attributes" | [Name: "Testing Boolean with false boolean object", Boolean: false]  | [Name: [attributeValuesToSet.Name], Boolean: [false]]
+        "Object With All Attributes" | [Name: "Testing Boolean with false string object", Boolean: "false"] | [Name: [attributeValuesToSet.Name], Boolean: [false]]
+        "Object With All Attributes" | [Name: "Testing Integer with string object", Integer: "99"]          | [Name: [attributeValuesToSet.Name], Integer: [99]]
+        "Object With All Attributes" | [Name: "Testing Integer with int object", Integer: 99]               | [Name: [attributeValuesToSet.Name], Integer: [99]]
+        "Object With All Attributes" | [Name: "Testing Integer with string object", Integer: "99"]          | [Name: [attributeValuesToSet.Name], Integer: [99]]
+        "Object With All Attributes" | [Name: "Testing Float with Float object", Float: 99.12]              | [Name: [attributeValuesToSet.Name], Float: [99.12]]
+        "Object With All Attributes" | [Name: "Testing Float with string object", Float: "99.12"]           | [Name: [attributeValuesToSet.Name], Float: [99.12]]
+        "Object With All Attributes" | [Name: "Testing Date with Date object", Date: new Date()]            | [Name: [attributeValuesToSet.Name], Date: [new Date()]]
 
     }
 

@@ -416,8 +416,8 @@ class InsightManagerForScriptrunner {
             log.trace(logPrepend + "Escalation not performed")
             if (serviceUser == authContext.getLoggedInUser()) {
                 log.trace("\tCurrent user is already the service user")
-            } else {
-                log.warn("\tCurrent user is not the service user")
+            } else if (serviceUser != null) {
+                log.warn("\tCurrent user (${ authContext.getLoggedInUser().name}) is not the service user (${serviceUser?.name})")
             }
             return false
         }
