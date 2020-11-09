@@ -27,6 +27,7 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import io.riada.core.share.model.Share
 import jline.internal.InputStreamReader
+import org.apache.commons.io.FileUtils
 import org.apache.groovy.json.internal.LazyMap
 import org.apache.log4j.Level
 import org.apache.log4j.Logger
@@ -55,18 +56,15 @@ import java.util.regex.Pattern
 Logger log = Logger.getLogger("test.report.V2")
 log.setLevel(Level.ALL)
 
-/*
+
 SpecHelper specHelper = new SpecHelper()
 specHelper.validateAndCacheSettings()
-ObjectSchemaBean testSchema = specHelper.setupTestObjectSchema("Test Schema1", "TSS")
-
-
-log.debug("Deletd?:" + specHelper.deleteScheme(testSchema))
+ObjectSchemaBean testSchema = specHelper.setupTestObjectSchema("Test Schema2", "TSS2")
 
 
 return
 
- */
+
 
 /**
  * Manual Steps:
@@ -77,7 +75,7 @@ return
 
 JUnitCore jUnitCore = new JUnitCore()
 
-Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test attachment operations'))
+Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test attachment export and import'))
 //Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
 
 
@@ -343,7 +341,111 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
     }
 
-    def 'Test attachment operations'(String sourceFilePath, boolean testDeletionOfSource, String attachmentComment) {
+    def 'Test attachment export and import'(ArrayList<String> sourceFileUrls) {
+
+        setup: "Create a source and destination ObjectBean, download source files and add to source object"
+        log.info("Testing export  and import of attachments")
+
+
+        InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
+        im.log.setLevel(Level.WARN)
+
+        ObjectBean sourceObject = im.createObject(testSchema.id, "Object With All Attributes", [Name: "Attachment Export Source Object"])
+        ObjectBean destinationObject = im.createObject(testSchema.id, "Object With All Attributes", [Name: "Attachment Export Destination Object"])
+        log.debug("\tWill use source object:" + sourceObject)
+        log.debug("\tWill use destination object:" + destinationObject)
+
+
+        log.debug("\tUsing sourceFileUrls:" + sourceFileUrls.join(","))
+
+        String destinationPath = specHelper.tempDir.path + "/" + this.class.simpleName
+        log.debug("\t\tFiles will be temporarily placed here:" + destinationPath)
+        ArrayList<File> sourceFiles = sourceFileUrls.collect { sourceFileUrl -> specHelper.downloadFile(sourceFileUrl, destinationPath) }
+        assert sourceFiles.size() == sourceFileUrls.size()
+        log.debug("\t" * 2 + "Source files downloaded")
+
+        ArrayList<SimplifiedAttachmentBean> sourceObjectAttachments = []
+        sourceFiles.each { sourceFile ->
+            log.debug("\t" * 2 + "Adding source file ${sourceFile.name} to source object $sourceObject")
+            SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(sourceObject, sourceFile)
+
+            assert newAttachmentBean != null: "There was an error adding source file ${sourceFile.name} to source object $sourceObject"
+            sourceObjectAttachments.add(newAttachmentBean)
+        }
+
+        String exportPath = System.getProperty("java.io.tmpdir") + "/" + this.class.simpleName + "/TestAttachmentExportAndImport"
+        assert !new File(exportPath).exists(): "Export directory already exists:" + exportPath
+
+        log.debug("\tWill use export directory:" + exportPath)
+
+
+        when: "Exporting attachments from source object"
+        log.debug("\tStarting export of source objects attachments")
+        ArrayList<File> exportedFiles = im.exportObjectAttachments(sourceObject, exportPath)
+        log.debug("\t\tExport complete")
+
+        then: "The list of exported files should be the same as the attachments added to the source object"
+        exportedFiles.name == sourceObjectAttachments.originalFileName
+        log.debug("\t\tThe exported files have the expected names")
+
+        exportedFiles.size() == sourceObjectAttachments.attachmentFile.size()
+        log.debug("\t\tThe exported files are of the correct quantity")
+
+        exportedFiles.parentFile.name.every { it == sourceObject.objectKey }
+        log.debug("\t\tThe exported files are in the correct parent folder")
+
+        exportedFiles.collect { it.bytes.sha256() } == sourceObjectAttachments.attachmentFile.collect { it.bytes.sha256() }
+        log.debug("\t\tThe hashes of the source files and the attachments match")
+
+
+        when: "Importing the exported attachments to the destination object"
+        log.debug("\tTesting import of attachments with default parameters")
+        ArrayList<SimplifiedAttachmentBean> importedBeans = im.importObjectAttachments(exportPath)
+        log.debug("\t\tImport complete")
+
+        then:
+        importedBeans.originalFileName == sourceObjectAttachments.originalFileName
+        log.debug("\t\tThe imported files have the expected names")
+
+        importedBeans.attachmentFile.size() == sourceObjectAttachments.attachmentFile.size()
+        log.debug("\t\tThe imported files are of the correct quantity")
+
+        importedBeans.attachmentFile.collect { it.bytes.sha256() } == sourceObjectAttachments.attachmentFile.collect { it.bytes.sha256() }
+        log.debug("\t\tThe hashes of the source files and the imported files match")
+
+        importedBeans.attachmentBean.objectId.every { it == destinationObject.id }
+        log.debug("\t\tThe attachments where added to the correct destination object")
+
+        importedBeans.attachmentBean.comment.every { it == "Imported from " + sourceObject.objectKey }
+        log.debug("\t\tThe attachments where given the correct comment")
+
+        exportedFiles.every { it.canRead() && it.exists() }
+        log.debug("\t\tThe source files where not removed")
+
+        log.debug("\t" + "*" * 20 + " Import with default parameters was tested successfully " + "*" * 20)
+
+
+
+        cleanup:
+        File exportDirectory = new File(exportPath)
+        log.debug("\tDeleting test file from filesystem:" + exportPath)
+        FileUtils.deleteDirectory(exportDirectory)
+        assert !exportDirectory.exists(): "Error deleting test file:" + exportPath
+
+
+        where:
+        sourceFileUrls | _
+        [
+                "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png",
+                "https://www.atlassian.com/dam/jcr:242ae640-3d6a-472d-803d-45d8dcc2a8d2/Atlassian-horizontal-blue-rgb.svg",
+                "https://bitbucket.org/atlassian/jira_docs/downloads/JIRACORESERVER_8.10.pdf"
+        ]              | _
+
+
+    }
+
+
+    def 'Test attachment CRD operations'(String sourceFilePath, boolean testDeletionOfSource, String attachmentComment) {
 
         setup:
         log.info("Testing attachment operations")
@@ -390,10 +492,10 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         }
 
         log.debug("\t\tThe attachment was successfully created")
-        log.trace("\t"*3 + "A SimplifiedAttachmentBean was returned")
-        log.trace("\t"*3 + "The attached file was found at the expected path:" + expectedAttachmentPath)
-        log.trace("\t"*3 + "The attachment was given the expected comment:" + attachmentComment)
-        log.trace("\t"*3 + "The deleteSourceFile parameter was respected")
+        log.trace("\t" * 3 + "A SimplifiedAttachmentBean was returned")
+        log.trace("\t" * 3 + "The attached file was found at the expected path:" + expectedAttachmentPath)
+        log.trace("\t" * 3 + "The attachment was given the expected comment:" + attachmentComment)
+        log.trace("\t" * 3 + "The deleteSourceFile parameter was respected")
 
         when:
 
@@ -408,10 +510,10 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         assert newAttachmentBean.attachmentBean.comment == retrievedSimplifiedAttachment.attachmentBean.comment: "The comment of the SimplifiedAttachmentBean differs"
 
         log.debug("\t\tThe new attachment was successfully verified")
-        log.trace("\t"*3 + "getAllObjectAttachmentBeans() returned an array containing an attachment with the expected id")
-        log.trace("\t"*3 + "The returned attachment had the correct originalFileName")
-        log.trace("\t"*3 + "The returned attachment had the correct SHA256 hash")
-        log.trace("\t"*3 + "The returned attachment had the correct comment")
+        log.trace("\t" * 3 + "getAllObjectAttachmentBeans() returned an array containing an attachment with the expected id")
+        log.trace("\t" * 3 + "The returned attachment had the correct originalFileName")
+        log.trace("\t" * 3 + "The returned attachment had the correct SHA256 hash")
+        log.trace("\t" * 3 + "The returned attachment had the correct comment")
 
 
         when:
