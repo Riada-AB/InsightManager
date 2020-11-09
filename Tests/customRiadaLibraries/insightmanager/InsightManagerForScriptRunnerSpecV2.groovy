@@ -56,13 +56,16 @@ import java.util.regex.Pattern
 Logger log = Logger.getLogger("test.report.V2")
 log.setLevel(Level.ALL)
 
-
+/*
 SpecHelper specHelper = new SpecHelper()
 specHelper.validateAndCacheSettings()
 ObjectSchemaBean testSchema = specHelper.setupTestObjectSchema("Test Schema2", "TSS2")
 
+specHelper.createNewGoldenSchemaImage(155, "goldenschema2.zip")
 
 return
+
+ */
 
 
 
@@ -75,7 +78,7 @@ return
 
 JUnitCore jUnitCore = new JUnitCore()
 
-Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test attachment export and import'))
+Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test readOnly mode of attachment operations'))
 //Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
 
 
@@ -160,12 +163,14 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
     def cleanupSpec() {
         log.info("Starting cleanup after all tests")
 
+
         if (specHelper.deleteScheme(testSchema)) {
             log.debug("\tDeleted test scheme")
             testSchema = null
         } else {
             throw new RuntimeException("Error deleting test scheme:" + testSchema.name)
         }
+
 
     }
 
@@ -236,7 +241,6 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
 
     }
-
 
     def "Verify IQL searching"(String iql, long matchSize, ApplicationUser loggedInUser, ApplicationUser serviceAccount) {
 
@@ -344,14 +348,14 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
     def 'Test attachment export and import'(ArrayList<String> sourceFileUrls) {
 
         setup: "Create a source and destination ObjectBean, download source files and add to source object"
-        log.info("Testing export  and import of attachments")
+        log.info("*" * 20 + " Testing export  and import of attachments with default parameters " + "*" * 20)
 
 
         InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
         im.log.setLevel(Level.WARN)
 
-        ObjectBean sourceObject = im.createObject(testSchema.id, "Object With All Attributes", [Name: "Attachment Export Source Object"])
-        ObjectBean destinationObject = im.createObject(testSchema.id, "Object With All Attributes", [Name: "Attachment Export Destination Object"])
+        ObjectBean sourceObject = im.createObject(testSchema.id, "Source Object", [Name: "Attachment Export Source Object"])
+        ObjectBean destinationObject = im.createObject(testSchema.id, "Destination Object", [Name: "Attachment Export Destination Object", "Old Object key": sourceObject.objectKey])
         log.debug("\tWill use source object:" + sourceObject)
         log.debug("\tWill use destination object:" + destinationObject)
 
@@ -404,13 +408,13 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         log.debug("\t\tImport complete")
 
         then:
-        importedBeans.originalFileName == sourceObjectAttachments.originalFileName
+        importedBeans.originalFileName.sort() == sourceObjectAttachments.originalFileName.sort()
         log.debug("\t\tThe imported files have the expected names")
 
         importedBeans.attachmentFile.size() == sourceObjectAttachments.attachmentFile.size()
         log.debug("\t\tThe imported files are of the correct quantity")
 
-        importedBeans.attachmentFile.collect { it.bytes.sha256() } == sourceObjectAttachments.attachmentFile.collect { it.bytes.sha256() }
+        importedBeans.attachmentFile.collect { it.bytes.sha256() }.sort() == sourceObjectAttachments.attachmentFile.collect { it.bytes.sha256() }.sort()
         log.debug("\t\tThe hashes of the source files and the imported files match")
 
         importedBeans.attachmentBean.objectId.every { it == destinationObject.id }
@@ -422,7 +426,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         exportedFiles.every { it.canRead() && it.exists() }
         log.debug("\t\tThe source files where not removed")
 
-        log.debug("\t" + "*" * 20 + " Import with default parameters was tested successfully " + "*" * 20)
+        log.debug("\t" + "\\" * 20 + " Import with default parameters was tested successfully " + "//" * 20)
 
 
 
@@ -444,6 +448,123 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
     }
 
+    def 'Test readOnly mode of attachment operations'(ArrayList<String> sourceFileUrls) {
+
+        setup: "Create a source and destination ObjectBean, download source files and add to source object"
+        log.info("*" * 20 + " Testing readOnly mode of attachment operations " + "*" * 20)
+
+        InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
+        im.log.setLevel(Level.WARN)
+        ObjectBean sourceObject = im.createObject(testSchema.id, "Source Object", [Name: "Testing Read Only - Source Object"])
+        ObjectBean destinationObject = im.createObject(testSchema.id, "Destination Object", [Name: "Testing Read Only - Destination Object", "Old Object key": sourceObject.objectKey])
+        log.debug("\tWill use source object:" + sourceObject)
+        log.debug("\tWill use destination object:" + destinationObject)
+
+        log.debug("\tUsing sourceFileUrls:" + sourceFileUrls.join(","))
+
+        String destinationPath = specHelper.tempDir.path + "/" + this.class.simpleName
+        log.debug("\t\tFiles will be temporarily placed here:" + destinationPath)
+        ArrayList<File> sourceFiles = sourceFileUrls.collect { sourceFileUrl -> specHelper.downloadFile(sourceFileUrl, destinationPath) }
+        assert sourceFiles.size() == sourceFileUrls.size()
+        log.debug("\t" * 2 + "Source files downloaded")
+
+
+        sourceFiles.each { sourceFile ->
+            log.debug("\t" * 2 + "Adding source file ${sourceFile.name} to source object $sourceObject")
+            SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(sourceObject, sourceFile)
+
+            assert newAttachmentBean != null: "There was an error adding source file ${sourceFile.name} to source object $sourceObject"
+
+        }
+
+        ArrayList<SimplifiedAttachmentBean> sourceObjectAttachments = im.getAllObjectAttachmentBeans(sourceObject)
+
+        String exportPath = System.getProperty("java.io.tmpdir") + "/" + this.class.simpleName + "/TestAttachmentReadOnly"
+        assert !new File(exportPath).exists(): "Export directory already exists:" + exportPath
+
+        log.debug("\tWill use export directory:" + exportPath)
+
+        ArrayList<SimplifiedAttachmentBean> destinationAttachmentBeans = []
+
+
+        when: "Adding attachments to object while in readOnly mode"
+        log.debug("\tStarting test of addObjectAttachment() readOnly true")
+        im.readOnly = true
+        assert im.getAllObjectAttachmentBeans(destinationObject).isEmpty() : "The destination object already has attachments"
+
+        sourceFiles.each { sourceFile ->
+            destinationAttachmentBeans.add(im.addObjectAttachment(destinationObject, sourceFile))
+
+        }
+
+
+        then:"No new attachmentBeans should have been crated and the destination object should not have any attachments"
+        destinationAttachmentBeans.every { it == null }
+        im.getAllObjectAttachmentBeans(destinationObject).size() == 0
+        log.debug("\t" * 2 + " addObjectAttachment() readOnly true was tested successfully")
+
+
+        when: "Deleting attachments while in readOnly mode"
+        log.debug("\tStarting test of deleteObjectAttachment() readOnly true")
+
+        assert sourceObjectAttachments.size() > 0 : "The source object does not have any attachments"
+
+        im.readOnly = true
+        sourceObjectAttachments.each {
+            assert !im.deleteObjectAttachment(it) : "Attachments appear to have been deleted even though in readOnly mode, Object:" + sourceObject + ", attachment:" + it.originalFileName
+        }
+
+        ArrayList<SimplifiedAttachmentBean>attachmentsAfterDelete = im.getAllObjectAttachmentBeans(sourceObject)
+
+        then: "No Attachments should have been deleted and the source object should have the same attachments as before"
+        assert sourceObjectAttachments == attachmentsAfterDelete : "Attachments have changed during the deleteObjectAttachment() operation"
+        attachmentsAfterDelete.every{it.isValid()}
+        log.debug("\t" * 2 + " deleteObjectAttachment() readOnly true was tested successfully")
+
+
+        when: "Exporting attachments while in readOnly mode"
+        log.debug("\tStarting test of exportObjectAttachments() readOnly true")
+        log.trace("\t"*2 + "Will use export path:" + exportPath + "/export")
+        im.readOnly = true
+        ArrayList<File> exportedFiles = im.exportObjectAttachments(sourceObject, exportPath + "/export")
+
+        then: "No files should have been exported and no filex should have been placed in the destination directory"
+        assert exportedFiles.isEmpty(): "exportObjectAttachments() returned File objects even though in read only mode"
+        File exportDirectory = new File(exportPath + "/export")
+
+        assert exportDirectory.listFiles() == null: "exportObjectAttachments() placed files in export folder even though in read only mode"
+        log.debug("\t" * 2 + "exportObjectAttachments() readOnly true was tested successfully")
+
+
+        when: "Importing attachments while in readOnly mode"
+        log.debug("\tStarting test of importObjectAttachments() readOnly true")
+        im.readOnly = true
+        assert im.getAllObjectAttachmentBeans(destinationObject).isEmpty() : "The destination object already has attachments"
+
+        ArrayList<SimplifiedAttachmentBean>importedFiles = im.importObjectAttachments(exportPath + "/export")
+
+        then:
+        assert importedFiles.every {it == null} : "importObjectAttachments() returned SimplifiedAttachmentBean even though in read only mode"
+        im.getAllObjectAttachmentBeans(destinationObject).size() == 0
+        log.debug("\t" * 2 + "importObjectAttachments() readOnly true was tested successfully")
+
+
+        cleanup:
+        log.debug("\tDeleting test file from filesystem:" + exportDirectory.path)
+        FileUtils.deleteDirectory(exportDirectory)
+        assert !exportDirectory.exists(): "Error deleting test file:" + exportPath
+
+
+        where:
+        sourceFileUrls | _
+        [
+                "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png",
+                "https://www.atlassian.com/dam/jcr:242ae640-3d6a-472d-803d-45d8dcc2a8d2/Atlassian-horizontal-blue-rgb.svg",
+                "https://bitbucket.org/atlassian/jira_docs/downloads/JIRACORESERVER_8.10.pdf"
+        ]              | _
+
+    }
+
 
     def 'Test attachment CRD operations'(String sourceFilePath, boolean testDeletionOfSource, String attachmentComment) {
 
@@ -458,7 +579,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
         im.log.setLevel(Level.WARN)
 
-        ObjectBean testObject = im.iql(testSchema.id, "\"Name\" = \"Sample object\"")?.first()
+        ObjectBean testObject = im.createObject(testSchema.id, "CRUD Object", [Name:"Testing attachment CRD operations"])
         log.debug("\tWill use test object:" + testObject)
         String expectedAttachmentPath = specHelper.jiraHome.path + "/data/attachments/insight/object/${testObject.id}/"
 
