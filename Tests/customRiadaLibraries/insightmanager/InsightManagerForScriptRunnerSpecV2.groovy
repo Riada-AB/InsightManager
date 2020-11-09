@@ -52,7 +52,7 @@ import java.util.regex.Pattern
 
 
 
-Logger log = Logger.getLogger("test.report")
+Logger log = Logger.getLogger("test.report.V2")
 log.setLevel(Level.ALL)
 
 /*
@@ -77,7 +77,7 @@ return
 
 JUnitCore jUnitCore = new JUnitCore()
 
-Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test creation of objects with all Attribute Types'))
+Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test attachment operations'))
 //Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
 
 
@@ -343,6 +343,106 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
     }
 
+    def 'Test attachment operations'(String sourceFilePath, boolean testDeletionOfSource, String attachmentComment) {
+
+        setup:
+        log.info("Testing attachment operations")
+        log.debug("\tUsing sourceFile:" + sourceFilePath)
+
+        String destinationPath = specHelper.tempDir.path + "/" + this.class.simpleName
+        log.debug("\tFile will be temporarily placed here:" + destinationPath)
+
+
+        InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
+        im.log.setLevel(Level.WARN)
+
+        ObjectBean testObject = im.iql(testSchema.id, "\"Name\" = \"Sample object\"")?.first()
+        log.debug("\tWill use test object:" + testObject)
+        String expectedAttachmentPath = specHelper.jiraHome.path + "/data/attachments/insight/object/${testObject.id}/"
+
+        log.debug("\tDownloading source file")
+        specHelper.log.setLevel(Level.ALL)
+        File testFile = specHelper.downloadFile(sourceFilePath, destinationPath)
+
+        assert testFile.exists(): "Error downloading sourceFile:" + sourceFilePath
+
+        String testFileHash = testFile.getBytes().sha256()
+        log.debug("\t\tDownload complete: ${testFile.path}, size: " + testFile.size())
+
+
+        when:
+        log.debug("\tTesting attaching file to $testObject")
+
+        SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(testObject, testFile, "", attachmentComment, testDeletionOfSource)
+
+        expectedAttachmentPath += newAttachmentBean.attachmentBean.nameInFileSystem
+
+        then:
+        newAttachmentBean != null
+        newAttachmentBean.isValid()
+        assert new File(expectedAttachmentPath).canRead(): "The attached file wasn't found at the expected path:" + expectedAttachmentPath
+        assert newAttachmentBean.attachmentBean.comment == attachmentComment: "The attachment didnt get its expected comment"
+
+        if (testDeletionOfSource) {
+            assert !testFile.canRead(): "Source file wasn't deleted by IM when expected"
+        } else {
+            assert testFile.canRead(): "Source file was unintentionally deleted by IM"
+        }
+
+        log.debug("\t\tThe attachment was successfully created")
+        log.trace("\t"*3 + "A SimplifiedAttachmentBean was returned")
+        log.trace("\t"*3 + "The attached file was found at the expected path:" + expectedAttachmentPath)
+        log.trace("\t"*3 + "The attachment was given the expected comment:" + attachmentComment)
+        log.trace("\t"*3 + "The deleteSourceFile parameter was respected")
+
+        when:
+
+        log.debug("\tTesting getAllObjectAttachmentBeans() to find and verify the new attachment")
+        ArrayList<SimplifiedAttachmentBean> objectAttachments = im.getAllObjectAttachmentBeans(testObject)
+        SimplifiedAttachmentBean retrievedSimplifiedAttachment = objectAttachments.find { it.id == newAttachmentBean.id }
+
+        then:
+        assert retrievedSimplifiedAttachment.originalFileName == testFile.name: "The name of the test file and the retrieved attachment file doesn't match"
+        assert retrievedSimplifiedAttachment.attachmentFile.getBytes().sha256() == testFileHash: "The hash of the test file and the retrieved attachment file doesn't match"
+
+        assert newAttachmentBean.attachmentBean.comment == retrievedSimplifiedAttachment.attachmentBean.comment: "The comment of the SimplifiedAttachmentBean differs"
+
+        log.debug("\t\tThe new attachment was successfully verified")
+        log.trace("\t"*3 + "getAllObjectAttachmentBeans() returned an array containing an attachment with the expected id")
+        log.trace("\t"*3 + "The returned attachment had the correct originalFileName")
+        log.trace("\t"*3 + "The returned attachment had the correct SHA256 hash")
+        log.trace("\t"*3 + "The returned attachment had the correct comment")
+
+
+        when:
+        log.debug("\tTesting deleteObjectAttachment() by deleting the new attachment")
+        boolean deletionResult = im.deleteObjectAttachment(newAttachmentBean)
+
+        then:
+
+        assert deletionResult: "deleteObjectAttachment was unsuccessful and returned false"
+
+        assert im.objectFacade.loadAttachmentBeanById(newAttachmentBean.id) == null
+        assert !new File(expectedAttachmentPath).canRead(): "The attached file can still be found at the expected path:" + expectedAttachmentPath
+        log.trace("\t\tThe attachment was successfully deleted")
+
+
+        cleanup:
+        if (!testDeletionOfSource) {
+            log.debug("Deleting test file from filesystem:" + testFile.path)
+            assert testFile.delete(): "Error deleting test file:" + testFile.path
+            log.debug("\tThe test file was successfully deleted")
+        }
+
+        where:
+        sourceFilePath                                                                                             | testDeletionOfSource | attachmentComment
+        "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"                       | false                | "no comment"
+        "https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png"                       | true                 | "no comment"
+        "https://www.atlassian.com/dam/jcr:242ae640-3d6a-472d-803d-45d8dcc2a8d2/Atlassian-horizontal-blue-rgb.svg" | true                 | " a comment"
+        "https://bitbucket.org/atlassian/jira_docs/downloads/JIRACORESERVER_8.10.pdf"                              | false                | "another comment"
+
+
+    }
 
     def "Test renderObjectToHtml()"(String objectIql, long matchSize, String attributeToRender, expectedAttributeValue, ApplicationUser loggedInUser, ApplicationUser serviceAccount) {
 
@@ -446,6 +546,7 @@ class SpecHelper {
 
     File jiraHome = ComponentAccessor.getComponentOfType(JiraHome).getHome()
     String jiraBaseUrl = ComponentAccessor.getComponentOfType(BaseUrl).getCanonicalBaseUrl()
+    File tempDir = new File(System.getProperty("java.io.tmpdir"))
 
     File settingsFile = new File(System.getProperty("java.io.tmpdir") + "/" + super.class.simpleName + "/settings.json")
     Map settings
@@ -668,6 +769,7 @@ class SpecHelper {
 
                 // opens input stream from the HTTP connection
                 InputStream inputStream = connection.getInputStream();
+                new File(destinationFolder).mkdirs()
                 String saveFilePath = destinationFolder + File.separator + fileName;
 
                 // opens an output stream to save into file
