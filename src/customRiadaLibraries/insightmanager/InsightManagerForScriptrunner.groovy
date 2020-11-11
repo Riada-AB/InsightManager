@@ -7,6 +7,7 @@ import com.atlassian.jira.plugin.PluginVersionStore
 import com.atlassian.jira.security.JiraAuthenticationContext
 import com.atlassian.jira.user.ApplicationUser
 import com.atlassian.jira.user.util.UserManager
+import com.atlassian.jira.web.ExecutingHttpRequest
 import com.onresolve.scriptrunner.runner.customisers.WithPlugin
 import com.riadalabs.jira.plugins.insight.channel.external.api.facade.impl.*
 import com.riadalabs.jira.plugins.insight.services.events.EventDispatchOption
@@ -75,11 +76,17 @@ class InsightManagerForScriptrunner {
     public boolean readOnly
     public boolean autoEscalate = true//should Insight requests be automatically escalated?
     private boolean currentlyEscalate = false
+    boolean inJsdBehaviourContext //Set to true if currently executing as a Behaviour in JSD
     String baseUrl
     String jiraDataPath
     JiraAuthenticationContext authContext
     UserManager userManager
     EventDispatchOption eventDispatchOption
+
+    static String jsdAvatarUrl = "/rest/insight_servicedesk/1.0/object/OBJECT_ID/avatar.png"
+    static String jsdObjectTypeIconUrl = "/rest/insight_servicedesk/1.0/objecttype/OBJECTTYPE_ID/icon.png"
+    static String jiraAvatarUrl = "/rest/insight/1.0/object/OBJECT_ID/avatar.png"
+    static String jiraObjectTypeIconUrl = "/rest/insight/1.0/objecttype/OBJECTTYPE_ID/icon.png"
 
 
     InsightManagerForScriptrunner() {
@@ -135,6 +142,8 @@ class InsightManagerForScriptrunner {
 
         eventDispatchOption = EventDispatchOption.DISPATCH
 
+        inJsdBehaviourContext = new ExecutingHttpRequest().get().servletPath.startsWith("/rest/scriptrunner/behaviours/latest/jsd/jsd")
+
 
     }
 
@@ -162,7 +171,6 @@ class InsightManagerForScriptrunner {
         log.debug("Found " + imports.size() + " imports")
 
 
-
         return imports
 
     }
@@ -182,8 +190,6 @@ class InsightManagerForScriptrunner {
         int importSourceId
         ImportSource importSourceObject
         Progress progress = null
-
-
 
 
         try {
@@ -417,7 +423,7 @@ class InsightManagerForScriptrunner {
             if (serviceUser == authContext.getLoggedInUser()) {
                 log.trace("\tCurrent user is already the service user")
             } else if (serviceUser != null) {
-                log.warn("\tCurrent user (${ authContext.getLoggedInUser().name}) is not the service user (${serviceUser?.name})")
+                log.warn("\tCurrent user (${authContext.getLoggedInUser().name}) is not the service user (${serviceUser?.name})")
             }
             return false
         }
@@ -1051,19 +1057,29 @@ class InsightManagerForScriptrunner {
 
         String returnHtml
 
+
         if (object.hasAvatar) {
-            returnHtml = "" +
-                    "<p style = 'line-height: 20px'>\n" +
-                    "   <img src = '${baseUrl}/rest/insight/1.0/object/${object.id}/avatar.png?size=48' style='vertical-align: middle' /><b> ${object.label}</b>\n" +
-                    "</p>" +
+            returnHtml = "<p style = 'line-height: 20px'>\n"
+
+            if (inJsdBehaviourContext) {
+                returnHtml += "   <img src = '${baseUrl}${jsdAvatarUrl.replace("OBJECT_ID", object.id.toString())}?size=48' style='vertical-align: middle' /><b> ${object.label}</b>\n"
+            } else {
+                returnHtml += "   <img src = '${baseUrl}${jiraAvatarUrl.replace("OBJECT_ID", object.id.toString())}?size=48' style='vertical-align: middle' /><b> ${object.label}</b>\n"
+            }
+            returnHtml += "</p>" +
                     "<p>" +
                     "<table>"
 
         } else {
-            returnHtml = "" +
-                    "<p style = 'line-height: 20px'>\n" +
-                    "   <img src = '${baseUrl}/rest/insight/1.0/objecttype/${object.objectTypeId}/icon.png?size=48' style='vertical-align: middle' /><b> ${object.label}</b>\n" +
-                    "</p>\n" +
+            returnHtml = "<p style = 'line-height: 20px'>\n"
+
+            if (inJsdBehaviourContext) {
+                returnHtml += "   <img src = '${baseUrl}${jsdObjectTypeIconUrl.replace("OBJECTTYPE_ID", object.objectTypeId.toString())}?size=48' style='vertical-align: middle' /><b> ${object.label}</b>\n"
+            } else {
+                returnHtml += "   <img src = '${baseUrl}${jiraObjectTypeIconUrl.replace("OBJECTTYPE_ID", object.objectTypeId.toString())}?size=48' style='vertical-align: middle' /><b> ${object.label}</b>\n"
+            }
+
+            returnHtml += "</p>\n" +
                     "<p>\n" +
                     "<table>\n"
 
@@ -1080,10 +1096,21 @@ class InsightManagerForScriptrunner {
 
                     if (referencedObject.hasAvatar) {
 
-                        returnHtml += "     <img src = '${baseUrl}/rest/insight/1.0/object/${referencedObject.id}/avatar.png?size=16' style='vertical-align: middle' />${referencedObject.label}"
-                    } else (
-                            returnHtml += "        <img src = '${baseUrl}/rest/insight/1.0/objecttype/${referencedObject.objectTypeId}/icon.png?size=16' style='vertical-align: middle' />${referencedObject.label}"
-                    )
+                        if (inJsdBehaviourContext) {
+                            returnHtml += "     <img src = '${baseUrl}${jsdAvatarUrl.replace("OBJECT_ID", referencedObject.id.toString())}?size=16' style='vertical-align: middle' />${referencedObject.label}"
+                        } else {
+                            returnHtml += "     <img src = '${baseUrl}${jiraAvatarUrl.replace("OBJECT_ID", referencedObject.id.toString())}?size=16' style='vertical-align: middle' />${referencedObject.label}"
+                        }
+
+                    } else {
+
+                        if (inJsdBehaviourContext) {
+                            returnHtml += "   <img src = '${baseUrl}${jsdObjectTypeIconUrl.replace("OBJECTTYPE_ID", referencedObject.objectTypeId.toString())}?size=16' style='vertical-align: middle' /><b> ${object.label}</b>\n"
+                        } else {
+                            returnHtml += "   <img src = '${baseUrl}${jiraObjectTypeIconUrl.replace("OBJECTTYPE_ID", referencedObject.objectTypeId.toString())}?size=16' style='vertical-align: middle' /><b> ${object.label}</b>\n"
+                        }
+
+                    }
 
                 }
 
@@ -1163,9 +1190,6 @@ class InsightManagerForScriptrunner {
     }
 
 
-
-
-
 /**
  * This method will retrieve all SimplifiedAttachmentBeans belonging to an object.
  * @param object key, id or objectbean
@@ -1202,7 +1226,6 @@ class InsightManagerForScriptrunner {
             log.error(all.message)
 
         }
-
 
 
         log.info("\tSuccessfully retrieved ${objectAttachments.size()} attachments")
