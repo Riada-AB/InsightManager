@@ -809,7 +809,13 @@ class InsightManagerForScriptrunner {
                 MutableObjectAttributeBean newAttributeBean
                 if (map.value instanceof ArrayList) {
                     //make sure everything is a string
-                    map.value = map.value.collect { it.toString() }
+
+                    if (map.value.first() instanceof ObjectBean) {
+                        map.value = map.value.collect { it.id.toString() }
+                    }else {
+                        map.value = map.value.collect { it.toString() }
+                    }
+
 
                     escalatePrivilage("\t")
                     newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *map.value)

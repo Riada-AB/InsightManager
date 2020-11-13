@@ -68,7 +68,6 @@ return
  */
 
 
-
 /**
  * Manual Steps:
  *  Create a JSD project, use the "Basic" template
@@ -78,7 +77,7 @@ return
 
 JUnitCore jUnitCore = new JUnitCore()
 
-Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test readOnly mode of attachment operations'))
+Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test updateObjectAttributes with various attribute types'))
 //Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
 
 
@@ -96,6 +95,8 @@ specHelper.validateAndCacheSettings()
 specHelper.setSchemaRoleActors(9, "Object Schema Managers", ["jira-administrators"], ["JIRAUSER10301"])
 
  */
+//TODO make sure the images returned by renderObject are accessible as all types of users
+
 
 class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
@@ -164,6 +165,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         log.info("Starting cleanup after all tests")
 
 
+
         if (specHelper.deleteScheme(testSchema)) {
             log.debug("\tDeleted test scheme")
             testSchema = null
@@ -172,11 +174,23 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         }
 
 
+
+
     }
 
     def setup() {
 
         log.info("Starting Setup before feature method")
+
+        /*
+        ObjectSchemaBean existingTestSchema =  objectSchemaFacade.findObjectSchemaBeans().find { it.name == "SPOC Testing of IM" }
+
+        if (existingTestSchema != null) {
+            assert specHelper.deleteScheme(existingTestSchema) : "Error deleting test schema"
+            testSchema == null
+        }
+
+         */
 
         if (testSchema == null) {
             log.debug("\tSetting up ObjectScheme for testing")
@@ -283,7 +297,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
     }
 
-    def "Test creation of objects with all Attribute Types"(String objectTypeName, Map attributeValuesToSet, Map expectedAttributeValues) {
+    def "Test creation of objects with various Attribute Types"(String objectTypeName, Map attributeValuesToSet, Map expectedAttributeValues) {
 
         setup:
         log.info("Will test creation of objects with all attribute types")
@@ -296,7 +310,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         log.debug("\t" * 2 + "Attributes:" + attributeValuesToSet)
 
         ObjectBean newObject = im.createObject(testSchema.id, objectTypeName, attributeValuesToSet)
-        log.debug("\tThe new objects key is:" + newObject)
+        log.debug("\tThe new objects key is:" + newObject.objectKey)
 
         Map newObjectValues = im.getObjectAttributeValues(newObject, attributeValuesToSet.keySet() as ArrayList)
         log.debug("\tThe new objects attribute values are:" + newObjectValues)
@@ -345,10 +359,144 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
     }
 
+
+    def "Test creation of objects with referenced Attribute Types"(String objectTypeName, String attribute, String referencedObjectIql) {
+
+        setup: "Setting up IM"
+        log.info("Will test creation of objects with referenced attribute types")
+        InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
+        im.log.setLevel(Level.WARN)
+        ArrayList<ObjectBean> matchingObjects = im.iql(testSchema.id, referencedObjectIql)
+        log.debug("\t" * 2 + "Will set value to objects matching IQL:" + referencedObjectIql)
+
+        when: "Creating an object with an array of ObjectBean as attribute value"
+        String objectName = "An object created with an array of ObjectBean as attribute value"
+        log.debug("\tCreating an object:")
+        log.debug("\t" * 2 + "ObjectType:" + objectTypeName)
+        log.debug("\t" * 2 + "Object name:" + objectName)
+        log.debug("\t" * 2 + "Attribute:" + attribute)
+        log.debug("\t" * 2 + "Will set attribute value to:" + matchingObjects)
+
+        ObjectBean newObject = im.createObject(testSchema.id, objectTypeName, [Name: objectName, (attribute): matchingObjects])
+        log.debug("\tThe new objects key is:" + newObject.objectKey)
+
+        Map newObjectValues = im.getObjectAttributeValues(newObject, [attribute] as ArrayList)
+        log.debug("\tThe new objects attribute values are:" + newObjectValues)
+
+        then: "The new object should have all the objects as attribute value"
+
+        newObjectValues.get(attribute)?.objectKey?.sort() == matchingObjects.objectKey.sort()
+        log.info("\tThe attributes where set successfully")
+
+
+        when: "Creating an object with an array of ObjectBean-IDs as attribute value"
+        objectName = "An object created with an array of ObjectBean-IDs as attribute value"
+        log.debug("\tCreating an object:")
+        log.debug("\t" * 2 + "ObjectType:" + objectTypeName)
+        log.debug("\t" * 2 + "Object name:" + objectName)
+        log.debug("\t" * 2 + "Attribute:" + attribute)
+        log.debug("\t" * 2 + "Will set attribute value to:" + matchingObjects.id)
+        newObject = null
+        newObjectValues = null
+
+        newObject = im.createObject(testSchema.id, objectTypeName, [Name: objectName, (attribute): matchingObjects.id])
+        log.debug("\tThe new objects key is:" + newObject.objectKey)
+
+        newObjectValues = im.getObjectAttributeValues(newObject, [attribute] as ArrayList)
+        log.debug("\tThe new objects attribute values are:" + newObjectValues)
+
+        then: "The new object should have all the objects as attribute value"
+
+        newObjectValues.get(attribute)?.objectKey?.sort() == matchingObjects.objectKey.sort()
+        log.info("\tThe attributes where set successfully")
+
+
+        when: "Creating an object with an array of ObjectBean-Keys as attribute value"
+        objectName = "An object created with an array of ObjectBean-Keys as attribute value"
+        log.debug("\tCreating an object:")
+        log.debug("\t" * 2 + "ObjectType:" + objectTypeName)
+        log.debug("\t" * 2 + "Object name:" + objectName)
+        log.debug("\t" * 2 + "Attribute:" + attribute)
+        log.debug("\t" * 2 + "Will set attribute value to:" + matchingObjects.objectKey)
+        newObject = null
+        newObjectValues = null
+
+        newObject = im.createObject(testSchema.id, objectTypeName, [Name: objectName, (attribute): matchingObjects.objectKey])
+        log.debug("\tThe new objects key is:" + newObject.objectKey)
+
+        newObjectValues = im.getObjectAttributeValues(newObject, [attribute] as ArrayList)
+        log.debug("\tThe new objects attribute values are:" + newObjectValues)
+
+        then: "The new object should have all the objects as attribute value"
+
+        newObjectValues.get(attribute)?.objectKey?.sort() == matchingObjects.objectKey.sort()
+        log.info("\tThe attributes where set successfully")
+
+
+        where:
+        objectTypeName               | attribute | referencedObjectIql
+        "Object With All Attributes" | "Object"  | "Name = \"Sample object\""
+        "Object With All Attributes" | "Object"  | "objectType = \"Object With All Attributes\""
+
+    }
+
+
+    def "Test updateObjectAttributes with various attribute types"(String objectTypeName, Map attributeValuesToSet, Map expectedAttributeValues, ApplicationUser loggedInUser, ApplicationUser serviceAccount) {
+
+        setup: "Initiate IM and create a blank test object"
+        log.info("*" * 20 + " Testing updateObjectAttributes with various attribute types " + "*" * 20)
+
+        //Replacing IQL´s in the attributeValuesToSet with actual objects
+        attributeValuesToSet = specHelper.replaceIqlWithObjects(attributeValuesToSet, testSchema)
+        expectedAttributeValues = specHelper.replaceIqlWithObjects(expectedAttributeValues, testSchema)
+
+        log.debug("\tWill create objects of type:" + objectTypeName)
+        log.debug("\tWill set the following attributes:" + attributeValuesToSet)
+        log.debug("\tWill expect the following attributes to be returned:" + expectedAttributeValues)
+        log.debug("\tWill be logged in as:" + loggedInUser)
+        log.debug("\tWill use the serviceAccount:" + serviceAccount)
+
+
+        jiraAuthenticationContext.setLoggedInUser(loggedInUser)
+        InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
+        im.log.setLevel(Level.TRACE)
+        im.setServiceAccount(serviceAccount)
+        ObjectBean testObject = im.createObject(testSchema.id, objectTypeName, ["Name": "A test name"])
+        log.debug("\tCreated test object:" + testObject)
+
+
+        when: "When setting attribute values with updateObjectAttributes"
+        im.updateObjectAttributes(testObject, attributeValuesToSet)
+        log.debug("\tupdateObjectAttributes() was used to set the test objects attributes")
+        log.debug("\tWill now retrieve the test objects values for the attributes:" + expectedAttributeValues.keySet())
+        Map attributeValuesAfterUpdate = im.getObjectAttributeValues(testObject, expectedAttributeValues.keySet() as List)
+        log.trace("\t" * 2 + "The a values are:" + attributeValuesAfterUpdate)
+
+
+        then: "The objects attributes should be set to the expected values"
+
+        attributeValuesAfterUpdate.sort().toString() == expectedAttributeValues.sort().toString()
+
+        and: "The currently logged in user is restored"
+        jiraAuthenticationContext.loggedInUser == loggedInUser
+
+
+        cleanup: "Restore the logged in user to the user running the script"
+        jiraAuthenticationContext.setLoggedInUser(specHelper.userRunningTheScript)
+
+        where:
+        objectTypeName               | attributeValuesToSet                                                                                 | expectedAttributeValues | loggedInUser             | serviceAccount
+        "Object With All Attributes" | [Name: "Updating an object attribute", Object: [iql: "objectType = \"Object With All Attributes\""]] | [Name: ["Updating an object attribute"], Object: [iql: "objectType = \"Object With All Attributes\""]]    | specHelper.jiraAdminUser | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute", Object: [iql: "objectType = \"Object With All Attributes\""]] | [Name: ["Updating an object attribute"], Object: [iql: "objectType = \"Object With All Attributes\""]]    | specHelper.projectCustomer | specHelper.jiraAdminUser
+
+
+    }
+
+
     def 'Test attachment export and import'(ArrayList<String> sourceFileUrls) {
 
         setup: "Create a source and destination ObjectBean, download source files and add to source object"
-        log.info("*" * 20 + " Testing export  and import of attachments with default parameters " + "*" * 20)
+        log.info("*" * 20 + " Testing export and import of attachments with default parameters " + "*" * 20)
 
 
         InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
@@ -429,7 +577,6 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         log.debug("\t" + "\\" * 20 + " Import with default parameters was tested successfully " + "//" * 20)
 
 
-
         cleanup:
         File exportDirectory = new File(exportPath)
         log.debug("\tDeleting test file from filesystem:" + exportPath)
@@ -490,7 +637,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         when: "Adding attachments to object while in readOnly mode"
         log.debug("\tStarting test of addObjectAttachment() readOnly true")
         im.readOnly = true
-        assert im.getAllObjectAttachmentBeans(destinationObject).isEmpty() : "The destination object already has attachments"
+        assert im.getAllObjectAttachmentBeans(destinationObject).isEmpty(): "The destination object already has attachments"
 
         sourceFiles.each { sourceFile ->
             destinationAttachmentBeans.add(im.addObjectAttachment(destinationObject, sourceFile))
@@ -498,7 +645,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         }
 
 
-        then:"No new attachmentBeans should have been crated and the destination object should not have any attachments"
+        then: "No new attachmentBeans should have been crated and the destination object should not have any attachments"
         destinationAttachmentBeans.every { it == null }
         im.getAllObjectAttachmentBeans(destinationObject).size() == 0
         log.debug("\t" * 2 + " addObjectAttachment() readOnly true was tested successfully")
@@ -507,24 +654,24 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         when: "Deleting attachments while in readOnly mode"
         log.debug("\tStarting test of deleteObjectAttachment() readOnly true")
 
-        assert sourceObjectAttachments.size() > 0 : "The source object does not have any attachments"
+        assert sourceObjectAttachments.size() > 0: "The source object does not have any attachments"
 
         im.readOnly = true
         sourceObjectAttachments.each {
-            assert !im.deleteObjectAttachment(it) : "Attachments appear to have been deleted even though in readOnly mode, Object:" + sourceObject + ", attachment:" + it.originalFileName
+            assert !im.deleteObjectAttachment(it): "Attachments appear to have been deleted even though in readOnly mode, Object:" + sourceObject + ", attachment:" + it.originalFileName
         }
 
-        ArrayList<SimplifiedAttachmentBean>attachmentsAfterDelete = im.getAllObjectAttachmentBeans(sourceObject)
+        ArrayList<SimplifiedAttachmentBean> attachmentsAfterDelete = im.getAllObjectAttachmentBeans(sourceObject)
 
         then: "No Attachments should have been deleted and the source object should have the same attachments as before"
-        assert sourceObjectAttachments == attachmentsAfterDelete : "Attachments have changed during the deleteObjectAttachment() operation"
-        attachmentsAfterDelete.every{it.isValid()}
+        assert sourceObjectAttachments == attachmentsAfterDelete: "Attachments have changed during the deleteObjectAttachment() operation"
+        attachmentsAfterDelete.every { it.isValid() }
         log.debug("\t" * 2 + " deleteObjectAttachment() readOnly true was tested successfully")
 
 
         when: "Exporting attachments while in readOnly mode"
         log.debug("\tStarting test of exportObjectAttachments() readOnly true")
-        log.trace("\t"*2 + "Will use export path:" + exportPath + "/export")
+        log.trace("\t" * 2 + "Will use export path:" + exportPath + "/export")
         im.readOnly = true
         ArrayList<File> exportedFiles = im.exportObjectAttachments(sourceObject, exportPath + "/export")
 
@@ -539,12 +686,12 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         when: "Importing attachments while in readOnly mode"
         log.debug("\tStarting test of importObjectAttachments() readOnly true")
         im.readOnly = true
-        assert im.getAllObjectAttachmentBeans(destinationObject).isEmpty() : "The destination object already has attachments"
+        assert im.getAllObjectAttachmentBeans(destinationObject).isEmpty(): "The destination object already has attachments"
 
-        ArrayList<SimplifiedAttachmentBean>importedFiles = im.importObjectAttachments(exportPath + "/export")
+        ArrayList<SimplifiedAttachmentBean> importedFiles = im.importObjectAttachments(exportPath + "/export")
 
         then:
-        assert importedFiles.every {it == null} : "importObjectAttachments() returned SimplifiedAttachmentBean even though in read only mode"
+        assert importedFiles.every { it == null }: "importObjectAttachments() returned SimplifiedAttachmentBean even though in read only mode"
         im.getAllObjectAttachmentBeans(destinationObject).size() == 0
         log.debug("\t" * 2 + "importObjectAttachments() readOnly true was tested successfully")
 
@@ -579,7 +726,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
         im.log.setLevel(Level.WARN)
 
-        ObjectBean testObject = im.createObject(testSchema.id, "CRUD Object", [Name:"Testing attachment CRD operations"])
+        ObjectBean testObject = im.createObject(testSchema.id, "CRUD Object", [Name: "Testing attachment CRD operations"])
         log.debug("\tWill use test object:" + testObject)
         String expectedAttachmentPath = specHelper.jiraHome.path + "/data/attachments/insight/object/${testObject.id}/"
 
@@ -1380,6 +1527,31 @@ class SpecHelper {
         Path sourcePath = new File(source).toPath()
         Path destinationPath = new File(destination).toPath()
         return Files.move(sourcePath, destinationPath, StandardCopyOption.REPLACE_EXISTING).toFile()
+    }
+
+
+    /**
+     * Intendex to translate IQLs in AttributeValue maps in to actual objects
+     * @param inputMap [Name: A name, Reference Objects: [iql: "ObjectType = Somethig"]
+     * @param schemaBean The schema to run the IQL in
+     * @return [Name: A name, Reference Objects: [ObjectBean1, ObjectBean2....]
+     */
+    Map replaceIqlWithObjects(Map inputMap, ObjectSchemaBean schemaBean) {
+
+        Map outputMap = [:]
+
+        inputMap.each {
+            if (it.value instanceof Map && it.value.size() == 1 && it.value.containsKey("iql")) {
+                ArrayList<ObjectBean> matchingBeans = iqlFacade.findObjects(schemaBean.id, it.value.iql)
+                outputMap.put(it.key, matchingBeans)
+
+            } else {
+                outputMap.put(it.key, it.value)
+            }
+        }
+
+
+        return outputMap
     }
 
     private static String readErrorStream(HttpURLConnection connection) {
