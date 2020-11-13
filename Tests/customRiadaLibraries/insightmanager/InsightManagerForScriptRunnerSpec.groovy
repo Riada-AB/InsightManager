@@ -11,7 +11,7 @@ import org.apache.log4j.Logger
 import org.junit.runner.JUnitCore
 import org.junit.runner.Result
 import spock.lang.Specification
-import customRiadaLibraries.insightmanager.InsightManagerForScriptrunner.SimplifiedAttachmentBean
+import customRiadaLibraries.insightmanager.SimplifiedAttachmentBean
 
 /**
  * If script fails due to "unable to resolve class customRiadaLibraries.insightmanager.InsightManagerForScriptrunner.SimplifiedAttachmentBean"
@@ -401,7 +401,7 @@ class InsightManagerForScriptRunnerSpecifications extends Specification {
 
         SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(testObject, testFile, "", attachmentComment, testDeletionOfSource)
 
-        SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(testObject, testFile, attachmentComment, testDeletionOfSource)
+        //SimplifiedAttachmentBean newAttachmentBean = im.addObjectAttachment(testObject, testFile, attachmentComment, testDeletionOfSource)
 
         expectedAttachmentPath += newAttachmentBean.attachmentBean.nameInFileSystem
 

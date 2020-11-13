@@ -24,7 +24,8 @@
     <properties>
         <!-- Set your JIRA version here -->
         <jira.version>8.6.0</jira.version>
-        <insight.version>8.6.3</insight.version>
+        <insight.version>8.6.5</insight.version>
+        <jira.servicedesk.version>4.12.1</jira.servicedesk.version>
 
     </properties>
 
@@ -57,12 +58,12 @@
                         -->
 
                         <!-- Include Jira Service Desk features -->
-                        <!--
+
                         <application>
                             <applicationKey>jira-servicedesk</applicationKey>
                             <version>${jira.servicedesk.version}</version>
                         </application>
-                        -->
+
                     </applications>
                 </configuration>
             </plugin>
