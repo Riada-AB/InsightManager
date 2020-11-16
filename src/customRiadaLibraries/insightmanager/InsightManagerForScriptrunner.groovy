@@ -17,6 +17,7 @@ import com.riadalabs.jira.plugins.insight.services.model.factory.ObjectAttribute
 import com.riadalabs.jira.plugins.insight.services.model.factory.ObjectAttributeBeanFactoryImpl
 import com.riadalabs.jira.plugins.insight.services.progress.model.Progress
 import com.riadalabs.jira.plugins.insight.services.progress.model.ProgressId
+import customRiadaLibraries.insightmanager.SimplifiedAttachmentBean
 import org.apache.log4j.Logger
 import org.joda.time.DateTime
 
@@ -728,13 +729,22 @@ class InsightManagerForScriptrunner {
             MutableObjectAttributeBean newAttributeBean
             if (value instanceof ArrayList) {
                 //make sure everything is a string
-                value = value.collect { it.toString() }
+                if (value.first() instanceof ObjectBean) {
+                    value = value.collect { it.id.toString() }
+                }else {
+                    value = value.collect { it.toString() }
+                }
 
                 escalatePrivilage("\t")
                 newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *value)
                 dropPrivilage("\t")
 
             } else {
+
+                if (value instanceof ObjectBean) {
+                    value = value.id
+                }
+
                 escalatePrivilage("\t")
                 newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, value as String)
                 dropPrivilage("\t")
@@ -796,26 +806,36 @@ class InsightManagerForScriptrunner {
 
         ArrayList<ObjectAttributeBean> newObjectAttributeBeans = []
 
-
         try {
 
             log.trace("\tObjectbean:" + objectBean)
 
 
-            attributeValueMap.each { map ->
+            attributeValueMap.clone().each { Map.Entry map ->
 
                 MutableObjectTypeAttributeBean attributeBean = getObjectTypeAttributeBean(map.key, objectBean.objectTypeId).createMutable()
 
                 MutableObjectAttributeBean newAttributeBean
                 if (map.value instanceof ArrayList) {
                     //make sure everything is a string
-                    map.value = map.value.collect { it.toString() }
+
+                    if (map.value.first() instanceof ObjectBean) {
+                        map.value = map.value.collect { it.id.toString() }
+                    }else {
+                        map.value = map.value.collect { it.toString() }
+                    }
+
 
                     escalatePrivilage("\t")
                     newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *map.value)
                     dropPrivilage("\t")
 
                 } else {
+
+                    if (map.value instanceof ObjectBean) {
+                        map.value = map.value.id
+                    }
+
                     escalatePrivilage("\t")
                     newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, map.value as String)
                     dropPrivilage("\t")
