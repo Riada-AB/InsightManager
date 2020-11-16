@@ -77,8 +77,8 @@ return
 
 JUnitCore jUnitCore = new JUnitCore()
 
-Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test updateObjectAttributes with various attribute types'))
-//Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
+//Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test updateObjectAttributes with various attribute types'))
+Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
 
 
 spockResult.failures.each { log.error(it) }
@@ -165,15 +165,12 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         log.info("Starting cleanup after all tests")
 
 
-
         if (specHelper.deleteScheme(testSchema)) {
             log.debug("\tDeleted test scheme")
             testSchema = null
         } else {
             throw new RuntimeException("Error deleting test scheme:" + testSchema.name)
         }
-
-
 
 
     }
@@ -441,20 +438,28 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
     }
 
 
-    def "Test updateObjectAttributes with various attribute types"(String objectTypeName, Map attributeValuesToSet, Map expectedAttributeValues, ApplicationUser loggedInUser, ApplicationUser serviceAccount) {
+    def "Test updateObjectAttributes and updateObjectAttribute with various attribute types"(String objectTypeName, Map attributeValuesToSet, Map<String, List> expectedAttributeValues, ApplicationUser loggedInUser, ApplicationUser serviceAccount) {
 
         setup: "Initiate IM and create a blank test object"
-        log.info("*" * 20 + " Testing updateObjectAttributes with various attribute types " + "*" * 20)
+        log.info("*" * 20 + " Testing updateObjectAttributes and updateObjectAttributes with various attribute types " + "*" * 20)
 
         //Replacing IQL´s in the attributeValuesToSet with actual objects
         attributeValuesToSet = specHelper.replaceIqlWithObjects(attributeValuesToSet, testSchema)
         expectedAttributeValues = specHelper.replaceIqlWithObjects(expectedAttributeValues, testSchema)
 
-        log.debug("\tWill create objects of type:" + objectTypeName)
-        log.debug("\tWill set the following attributes:" + attributeValuesToSet)
-        log.debug("\tWill expect the following attributes to be returned:" + expectedAttributeValues)
-        log.debug("\tWill be logged in as:" + loggedInUser)
-        log.debug("\tWill use the serviceAccount:" + serviceAccount)
+        //Make sure all expected values are arrays
+        expectedAttributeValues.each {
+            if (!(it.value instanceof ArrayList)) {
+                it.value = [it.value]
+            }
+        }
+
+        log.debug("\tWill start testing updating multiple attributes with updateObjectAttributes")
+        log.debug("\t\tWill create objects of type:" + objectTypeName)
+        log.debug("\t\tWill set the following attributes:" + attributeValuesToSet)
+        log.debug("\t\tWill expect the following attributes to be returned:" + expectedAttributeValues)
+        log.debug("\t\tWill be logged in as:" + loggedInUser)
+        log.debug("\t\tWill use the serviceAccount:" + serviceAccount)
 
 
         jiraAuthenticationContext.setLoggedInUser(loggedInUser)
@@ -462,32 +467,116 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         im.log.setLevel(Level.TRACE)
         im.setServiceAccount(serviceAccount)
         ObjectBean testObject = im.createObject(testSchema.id, objectTypeName, ["Name": "A test name"])
-        log.debug("\tCreated test object:" + testObject)
+        log.debug("\t\tCreated test object:" + testObject)
 
 
         when: "When setting attribute values with updateObjectAttributes"
+
+
+
         im.updateObjectAttributes(testObject, attributeValuesToSet)
-        log.debug("\tupdateObjectAttributes() was used to set the test objects attributes")
-        log.debug("\tWill now retrieve the test objects values for the attributes:" + expectedAttributeValues.keySet())
-        Map attributeValuesAfterUpdate = im.getObjectAttributeValues(testObject, expectedAttributeValues.keySet() as List)
-        log.trace("\t" * 2 + "The a values are:" + attributeValuesAfterUpdate)
+
+
+        log.debug("\t\tupdateObjectAttributes() was used to set the test objects attributes")
+        log.debug("\t\tWill now retrieve the test objects values for the attributes:" + expectedAttributeValues.keySet())
+        Map<String, List> attributeValuesAfterUpdate = im.getObjectAttributeValues(testObject, expectedAttributeValues.keySet() as List)
+        String valueStringAfterUpdate = attributeValuesAfterUpdate.collect {
+            if (it.value instanceof ArrayList) {
+                it.value.sort()
+            } else {
+                it.value
+            }
+        }.sort().toString()
+
+        String valueStringExpected = expectedAttributeValues.collect {
+            if (it.value instanceof ArrayList) {
+                it.value.sort()
+            } else {
+                it.value
+            }
+        }.sort().toString()
+
+        log.trace("\t" * 3 + "The a values are:" + attributeValuesAfterUpdate.sort())
+        log.trace("\t" * 3 + "The a expected values are:" + expectedAttributeValues.sort())
 
 
         then: "The objects attributes should be set to the expected values"
-
         attributeValuesAfterUpdate.sort().toString() == expectedAttributeValues.sort().toString()
+        valueStringAfterUpdate == valueStringExpected
+
 
         and: "The currently logged in user is restored"
         jiraAuthenticationContext.loggedInUser == loggedInUser
+        log.debug("\t\tUpdating of multiple attributes with updateObjectAttributes() was tested successfully")
+
+
+        when: "When updating single attributes at time"
+        log.debug("\tWill start testing updating single attributes at a time with updateObjectAttribute")
+        testObject = null
+        attributeValuesAfterUpdate = null
+        valueStringAfterUpdate = null
+        valueStringExpected = null
+        testObject = im.createObject(testSchema.id, objectTypeName, ["Name": "A test name"])
+        log.debug("\t\tCreated test object:" + testObject)
+
+
+        attributeValuesToSet.each { attribute, value ->
+            log.debug("\t\tUppdating attribute \"$attribute\" with value \"$value\"")
+            if (value instanceof ArrayList) {
+                log.trace("\t" * 3 + "Value class: ${value?.first()?.class?.simpleName}")
+            } else {
+                log.trace("\t" * 3 + "Value class: ${value.class.simpleName}")
+            }
+            im.updateObjectAttribute(testObject, attribute, value)
+        }
+        log.debug("\t\tWill now retrieve the test objects values for the attributes:" + expectedAttributeValues.keySet())
+        attributeValuesAfterUpdate = im.getObjectAttributeValues(testObject, expectedAttributeValues.keySet() as List)
+        log.trace("\t" * 3 + "The a values are:" + attributeValuesAfterUpdate)
+
+        valueStringAfterUpdate = attributeValuesAfterUpdate.collect {
+            if (it.value.first() instanceof ObjectBean) {
+                return it.value.sort { it.id }
+            } else {
+                return it.value.sort()
+            }
+        }.sort().toString()
+        valueStringExpected = expectedAttributeValues.collect {
+            if (it.value.first() instanceof ObjectBean) {
+                return it.value.sort { it.id }
+            } else {
+                return it.value.sort()
+            }
+        }.sort().toString()
+
+        then:
+        valueStringAfterUpdate == valueStringExpected
+
+        and: "The currently logged in user is restored"
+        jiraAuthenticationContext.loggedInUser == loggedInUser
+        log.debug("\t\tUpdating of single attributes with updateObjectAttribute() was tested successfully")
 
 
         cleanup: "Restore the logged in user to the user running the script"
         jiraAuthenticationContext.setLoggedInUser(specHelper.userRunningTheScript)
 
+        log.debug("\\" * 20 + " Testing updateObjectAttributes with various attribute types has finished " + "/" * 20)
+
         where:
-        objectTypeName               | attributeValuesToSet                                                                                 | expectedAttributeValues | loggedInUser             | serviceAccount
-        "Object With All Attributes" | [Name: "Updating an object attribute", Object: [iql: "objectType = \"Object With All Attributes\""]] | [Name: ["Updating an object attribute"], Object: [iql: "objectType = \"Object With All Attributes\""]]    | specHelper.jiraAdminUser | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute", Object: [iql: "objectType = \"Object With All Attributes\""]] | [Name: ["Updating an object attribute"], Object: [iql: "objectType = \"Object With All Attributes\""]]    | specHelper.projectCustomer | specHelper.jiraAdminUser
+        objectTypeName               | attributeValuesToSet                                                                                                                                                                 | expectedAttributeValues                                                                                                                                  | loggedInUser               | serviceAccount
+
+
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectBeans as jiraAdminUser", Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]   | [Name: [attributeValuesToSet.Name], Object: attributeValuesToSet.Object, "Text": [attributeValuesToSet.Text]]                                             | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectBeans as projectCustomer", Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"] | [Name: [attributeValuesToSet.Name], Object: attributeValuesToSet.Object, "Text": [attributeValuesToSet.Text]]                                             | specHelper.projectCustomer | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKeys as jiraAdminUser", Object: [IQL_REPLACE_WITH_KEYS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]    | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKeys as projectCustomer", Object: [IQL_REPLACE_WITH_KEYS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]  | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.projectCustomer | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectIds as jiraAdminUser", Object: [IQL_REPLACE_WITH_IDS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]     | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectIds as projectCustomer", Object: [IQL_REPLACE_WITH_IDS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]   | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.projectCustomer | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectBean as jiraAdminUser", Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]   | [Name: [attributeValuesToSet.Name], Object: attributeValuesToSet.Object, "Text": [attributeValuesToSet.Text]]                                            | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectBean as projectCustomer", Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": "Some text value"] | [Name: [attributeValuesToSet.Name], Object: attributeValuesToSet.Object, "Text": [attributeValuesToSet.Text]]                                            | specHelper.projectCustomer | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKey as jiraAdminUser", Object: [IQL_REPLACE_WITH_KEY: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]     | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKey as projectCustomer", Object: [IQL_REPLACE_WITH_KEY: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]   | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.projectCustomer | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectId as jiraAdminUser", Object: [IQL_REPLACE_WITH_ID: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]       | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectId as projectCustomer", Object: [IQL_REPLACE_WITH_ID: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]     | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.projectCustomer | specHelper.jiraAdminUser
 
 
     }
@@ -1531,8 +1620,16 @@ class SpecHelper {
 
 
     /**
-     * Intendex to translate IQLs in AttributeValue maps in to actual objects
-     * @param inputMap [Name: A name, Reference Objects: [iql: "ObjectType = Somethig"]
+     * Intended to translate IQLs in AttributeValue maps in to actual objects
+     * The input map may contain the following commands:
+     *  IQL_REPLACE_WITH_BEANS: will be replaced by an array of object beans
+     *  IQL_REPLACE_WITH_KEYS: will be replaced by an array of object keys
+     *  IQL_REPLACE_WITH_IDS: will be replaced by an array of object ids
+     *
+     *  IQL_REPLACE_WITH_BEAN will be replaced by a single object bean
+     *  IQL_REPLACE_WITH_KEY will be replaced by a single object key
+     *  IQL_REPLACE_WITH_ID will be replaced by a single object id
+     * @param inputMap [Name: A name, Reference Objects: [IQL_REPLACE_WITH_BEANS: "ObjectType = Somethig"]
      * @param schemaBean The schema to run the IQL in
      * @return [Name: A name, Reference Objects: [ObjectBean1, ObjectBean2....]
      */
@@ -1540,16 +1637,37 @@ class SpecHelper {
 
         Map outputMap = [:]
 
-        inputMap.each {
-            if (it.value instanceof Map && it.value.size() == 1 && it.value.containsKey("iql")) {
-                ArrayList<ObjectBean> matchingBeans = iqlFacade.findObjects(schemaBean.id, it.value.iql)
-                outputMap.put(it.key, matchingBeans)
+        inputMap.each { inputEntry ->
 
-            } else {
-                outputMap.put(it.key, it.value)
+            if (inputEntry.value instanceof Map && inputEntry.value.size() == 1 && inputEntry.value.find { it.key.startsWith("IQL_") }) {
+
+                String command = inputEntry.value.find { it.key.startsWith("IQL_") }.key
+                String iql = inputEntry.value.find { it.key.startsWith("IQL_") }.value
+
+                ArrayList<ObjectBean> matchingBeans = iqlFacade.findObjects(schemaBean.id, iql)
+                //Multiple objects returned
+                if (command == "IQL_REPLACE_WITH_BEANS") {
+                    outputMap.put(inputEntry.key, matchingBeans)
+                } else if (command == "IQL_REPLACE_WITH_KEYS") {
+                    outputMap.put(inputEntry.key, matchingBeans.objectKey)
+                } else if (command == "IQL_REPLACE_WITH_IDS") {
+                    outputMap.put(inputEntry.key, matchingBeans.id)
+                }
+                //Single object returned
+                else if (command == "IQL_REPLACE_WITH_BEAN") {
+                    outputMap.put(inputEntry.key, matchingBeans.first())
+                } else if (command == "IQL_REPLACE_WITH_KEY") {
+                    outputMap.put(inputEntry.key, matchingBeans.first().objectKey)
+                } else if (command == "IQL_REPLACE_WITH_ID") {
+                    outputMap.put(inputEntry.key, matchingBeans.first().id)
+                } else {
+                    outputMap.put(inputEntry.key, inputEntry.value)
+                }
+
+
             }
-        }
 
+        }
 
         return outputMap
     }
