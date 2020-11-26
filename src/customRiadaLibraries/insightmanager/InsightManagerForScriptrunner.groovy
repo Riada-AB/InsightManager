@@ -1112,7 +1112,7 @@ class InsightManagerForScriptrunner {
                         "   <tr>\n" +
                         "        <td valign=\"top\"><b>${it.key}:</b></td>\n" +
                         "        <td valign=\"top\">\n"
-                it.value.each { referencedObject ->
+                it.value.sort { it.label }.each { referencedObject ->
 
                     if (referencedObject.hasAvatar) {
 
@@ -1125,9 +1125,9 @@ class InsightManagerForScriptrunner {
                     } else {
 
                         if (inJsdBehaviourContext) {
-                            returnHtml += "   <img src = '${baseUrl}${jsdObjectTypeIconUrl.replace("OBJECTTYPE_ID", referencedObject.objectTypeId.toString())}?size=16' style='vertical-align: middle' /><b> ${object.label}</b>\n"
+                            returnHtml += "   <img src = '${baseUrl}${jsdObjectTypeIconUrl.replace("OBJECTTYPE_ID", referencedObject.objectTypeId.toString())}?size=16' style='vertical-align: middle' /><b> ${referencedObject.label}</b>\n"
                         } else {
-                            returnHtml += "   <img src = '${baseUrl}${jiraObjectTypeIconUrl.replace("OBJECTTYPE_ID", referencedObject.objectTypeId.toString())}?size=16' style='vertical-align: middle' /><b> ${object.label}</b>\n"
+                            returnHtml += "   <img src = '${baseUrl}${jiraObjectTypeIconUrl.replace("OBJECTTYPE_ID", referencedObject.objectTypeId.toString())}?size=16' style='vertical-align: middle' /><b> ${referencedObject.label}</b>\n"
                         }
 
                     }
