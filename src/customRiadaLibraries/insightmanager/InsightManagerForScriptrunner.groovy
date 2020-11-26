@@ -21,11 +21,11 @@ import customRiadaLibraries.insightmanager.SimplifiedAttachmentBean
 import org.apache.log4j.Logger
 import org.joda.time.DateTime
 
-
+import javax.activation.MimetypesFileTypeMap
 import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.Paths
-
+import java.nio.file.spi.FileTypeDetector
 import java.text.DateFormat
 import java.time.LocalDateTime
 
@@ -143,7 +143,7 @@ class InsightManagerForScriptrunner {
 
         eventDispatchOption = EventDispatchOption.DISPATCH
 
-        inJsdBehaviourContext = new ExecutingHttpRequest().get().servletPath.startsWith("/rest/scriptrunner/behaviours/latest/jsd/jsd")
+        inJsdBehaviourContext = new ExecutingHttpRequest()?.get()?.servletPath?.startsWith("/rest/scriptrunner/behaviours/latest/jsd/jsd")
 
 
     }
@@ -1288,8 +1288,11 @@ class InsightManagerForScriptrunner {
                     Files.copy(file.toPath(), sourceFile.toPath())
                 }
 
+
+
+
                 escalatePrivilage("\t")
-                AttachmentBean attachmentBean = objectFacade.addAttachmentBean(objectBean.id, sourceFile, attachmentName ?: file.name, Files.probeContentType(sourceFile.toPath()), attachmentComment)
+                AttachmentBean attachmentBean = objectFacade.addAttachmentBean(objectBean.id, sourceFile, attachmentName ?: file.name, new MimetypesFileTypeMap().getContentType( attachmentName ?: file.name), attachmentComment)
                 dropPrivilage("\t")
 
                 assert attachmentBean != null && attachmentBean.nameInFileSystem != null
