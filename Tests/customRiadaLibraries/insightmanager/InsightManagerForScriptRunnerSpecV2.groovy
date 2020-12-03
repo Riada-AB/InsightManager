@@ -7,6 +7,7 @@ import com.atlassian.jira.project.Project
 import com.atlassian.jira.project.ProjectManager
 import com.atlassian.jira.security.GlobalPermissionManager
 import com.atlassian.jira.security.JiraAuthenticationContext
+import com.atlassian.jira.security.roles.ProjectRole
 import com.atlassian.jira.security.roles.ProjectRoleManager
 import com.atlassian.jira.user.ApplicationUser
 import com.atlassian.jira.user.util.UserManager
@@ -71,17 +72,21 @@ return
 /**
  * Manual Steps:
  *  Create a JSD project, use the "Basic" template
+ *  Run the test once, to create the settingsfile $JIRAHOME/temp/SpecHelper/settings.json
+ *  Update the settingsfile with users with the corresponding privileges
  */
 
 
 
 JUnitCore jUnitCore = new JUnitCore()
 
-//Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test updateObjectAttributes with various attribute types'))
+//Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, "Test updateObjectAttributes and updateObjectAttribute with various attribute types"))
 Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
 
 
-spockResult.failures.each { log.error(it) }
+spockResult.failures.each { log.error(it)
+    it.exception.stackTrace.each {log.debug(it)}
+}
 
 spockResult.each { log.info("Result:" + it.toString()) }
 
@@ -1055,6 +1060,11 @@ class SpecHelper {
                         projectCustomer: "CustomerName"
                 ]
         ]
+
+        if (!settingsFile.parentFile.exists()) {
+            settingsFile.parentFile.mkdirs()
+        }
+
         boolean fileCreated = settingsFile.createNewFile()
 
         if (fileCreated) {
@@ -1101,9 +1111,11 @@ class SpecHelper {
         assert projectAdmin != "Could not find the supplied project admin: " + settings.jsdProject.projectAdmin
         assert projectRoleManager.isUserInProjectRole(projectAdmin, projectRoleManager.getProjectRole("Administrators"), jsdProject): "The supplied project admin ($projectAdmin) is not admin of the project" + jsdProject.name
 
-        //Chech the supplied JSD Customer
+        //Check the supplied JSD Customer
         projectCustomer = userManager.getUserByName(settings.jsdProject.projectCustomer)
-        assert projectRoleManager.getProjectRoles(projectCustomer, jsdProject).isEmpty(): "The JSD customer should not have any project roles in the JSD project:" + projectCustomer
+        assert projectRoleManager.getProjectRoles(projectCustomer, jsdProject).every {it.name == "Service Desk Customers"}: "The JSD customer ${projectCustomer} should only have the customer project role in the JSD project ${jsdProject.key}. The user has the following roles:" + projectRoleManager.getProjectRoles(projectCustomer, jsdProject)
+
+
 
 
         //Check the supplied JIRA admin
@@ -1670,6 +1682,54 @@ class SpecHelper {
         }
 
         return outputMap
+    }
+
+    Map<String, Map> compareAttributeValues(Map<String, List>expectedValues, Map<String, List>actualValues) {
+
+        Map<String, List>missingEntries = [:]
+        Map<String, Map<String, List>>diffingEntries = [:]
+        Map<String, List>equalEntries = [:]
+        expectedValues.each {expectedEntry ->
+            Map.Entry actualEntry = actualValues.find {it.key expectedEntry.key}
+            if (actualEntry == null) {
+                missingEntries += expectedEntry
+            }else if (expectedEntry.value.sort() != actualEntry.value.sort()) {
+                diffingEntries.put(expectedEntry.key, [expected: expectedEntry.value, actual: actualEntry.value])
+            }else {
+                equalEntries += actualEntry
+            }
+        }
+
+        return [missing: missingEntries, diffing: diffingEntries, equal: equalEntries]
+
+    }
+
+    String describeComparedAttributeValues(Map<String, Map> comparedAttributeValues) {
+
+        Map<String, List>missingEntries = comparedAttributeValues.missing
+        Map<String, Map<String, List>>diffingEntries = comparedAttributeValues.diffing
+        Map<String, List>equalEntries = comparedAttributeValues.equal
+
+        String output = "The following attributes have the expected values:\n"
+
+        equalEntries.each {output += "\t * Attribute:" + it.key + "\n"}
+
+        output += "The following attributes are missing:\n"
+        missingEntries.each {
+            output += "\t * Attribute:" + it.key + "\n"
+        }
+
+        output += "The following attributes have diffing values:\n"
+        diffingEntries.each {
+            output += "\t * Attribute:" + it.key + "\n"
+            output += "\t\t * Expected value" + it.value.expected + "\n"
+            output += "\t\t * Actual value" + it.value.actual + "\n"
+        }
+
+
+
+
+
     }
 
     private static String readErrorStream(HttpURLConnection connection) {
