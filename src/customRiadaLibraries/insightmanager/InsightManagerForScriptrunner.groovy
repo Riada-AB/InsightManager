@@ -10,6 +10,8 @@ import com.atlassian.jira.user.util.UserManager
 import com.atlassian.jira.web.ExecutingHttpRequest
 import com.onresolve.scriptrunner.runner.customisers.WithPlugin
 import com.riadalabs.jira.plugins.insight.channel.external.api.facade.impl.*
+import com.riadalabs.jira.plugins.insight.common.exception.InsightException
+import com.riadalabs.jira.plugins.insight.common.exception.PermissionInsightException
 import com.riadalabs.jira.plugins.insight.services.events.EventDispatchOption
 import com.riadalabs.jira.plugins.insight.services.imports.model.ImportSource
 import com.riadalabs.jira.plugins.insight.services.model.*
@@ -144,6 +146,7 @@ class InsightManagerForScriptrunner {
         eventDispatchOption = EventDispatchOption.DISPATCH
 
         inJsdBehaviourContext = new ExecutingHttpRequest().get().servletPath.startsWith("/rest/scriptrunner/behaviours/latest/jsd/jsd")
+        initialUser = authContext.getLoggedInUser()
 
 
     }
@@ -369,7 +372,6 @@ class InsightManagerForScriptrunner {
      */
     void setServiceAccount(def userSuppliedServiceUser = "") {
 
-        initialUser = authContext.getLoggedInUser()
 
         if (initialUser == null) {
             log.info("No initial user found, likely because the script is running as service, setting initialuser = ServiceAccount")
@@ -414,13 +416,19 @@ class InsightManagerForScriptrunner {
             log.trace(logPrepend + "Escalating user privileges to service account: $serviceUser from initial account: $initialUser")
             authContext.setLoggedInUser(serviceUser)
 
-            currentlyEscalate = authContext.getLoggedInUser() == serviceUser
+            currentlyEscalate = true //authContext.getLoggedInUser() == serviceUser
 
             assert currentlyEscalate: "Error escalating to $serviceUser, current user is:" + authContext.getLoggedInUser()
 
             return currentlyEscalate
         } else {
             log.trace(logPrepend + "Escalation not performed")
+            log.trace(logPrepend * 2 + "AutoEscalate:" + autoEscalate)
+            log.trace(logPrepend * 2 + "ServiceUser:" + serviceUser)
+            log.trace(logPrepend * 2 + "InitialUser:" + initialUser)
+            log.trace(logPrepend * 2 + "Current user:" + authContext.loggedInUser)
+            log.trace(logPrepend * 2 + "CurrentlyEscalate:" + currentlyEscalate)
+
             if (serviceUser == authContext.getLoggedInUser()) {
                 log.trace("\tCurrent user is already the service user")
             } else if (serviceUser != null) {
@@ -438,13 +446,18 @@ class InsightManagerForScriptrunner {
             log.trace(logPrepend + "Descalating user privileges from initial account: $initialUser to service account: $serviceUser")
             authContext.setLoggedInUser(initialUser)
 
-            currentlyEscalate = authContext.getLoggedInUser() != initialUser
+            currentlyEscalate = false //authContext.getLoggedInUser() != initialUser
             assert !currentlyEscalate: "Error deescalating to $initialUser, current user is:" + authContext.getLoggedInUser()
 
 
             return !currentlyEscalate
         } else {
             log.trace(logPrepend + "Deescalation not performed")
+            log.trace(logPrepend * 2 + "AutoEscalate:" + autoEscalate)
+            log.trace(logPrepend * 2 + "ServiceUser:" + serviceUser)
+            log.trace(logPrepend * 2 + "InitialUser:" + initialUser)
+            log.trace(logPrepend * 2 + "Current user:" + authContext.loggedInUser)
+            log.trace(logPrepend * 2 + "CurrentlyEscalate:" + currentlyEscalate)
             return false
         }
 
@@ -731,7 +744,7 @@ class InsightManagerForScriptrunner {
                 //make sure everything is a string
                 if (value.first() instanceof ObjectBean) {
                     value = value.collect { it.id.toString() }
-                }else {
+                } else {
                     value = value.collect { it.toString() }
                 }
 
@@ -821,7 +834,7 @@ class InsightManagerForScriptrunner {
 
                     if (map.value.first() instanceof ObjectBean) {
                         map.value = map.value.collect { it.id.toString() }
-                    }else {
+                    } else {
                         map.value = map.value.collect { it.toString() }
                     }
 
@@ -1552,6 +1565,93 @@ class InsightManagerForScriptrunner {
 
 
         return newAttachmentBeans
+
+    }
+
+    /**
+     * Create an object comment
+     * @param object id, key, objectBean of the object you´d like to add a comment to
+     * @param commentText The text/body of the comment
+     * @param accessLevel The access level of the comment, default is Users
+     * @return The newly created CommentBean
+     */
+    CommentBean createObjectComment(def object, String commentText, int accessLevel = CommentBean.ACCESS_LEVEL_USERS) {
+
+        log.info("Adding comment to object:" + object)
+        log.debug("\tComment Text:" + commentText)
+        log.debug("\tAccess Level:" + accessLevel)
+
+        CommentBean newComment = new CommentBean()
+
+        newComment.setComment(commentText)
+        newComment.setRole(accessLevel)
+
+        escalatePrivilage("\t")
+        newComment.setAuthor(authContext.loggedInUser.key)
+        newComment.setObjectId(getObjectBean(object).id)
+        newComment = objectFacade.storeCommentBean(newComment)
+        dropPrivilage("\t")
+
+        log.debug("\tAuthor:" + newComment?.author)
+        log.debug("\tObject ID:" + newComment?.objectId)
+
+        if (newComment != null && newComment.id != null) {
+            log.info("\tComment successfully created, ID:" + newComment.id)
+        }
+
+
+        return newComment
+
+    }
+
+    /**
+     * Get commentBeans from an object
+     * @param object id, key or objectBean of the object you´d like to get comments from
+     * @return an Array of CommentBeans
+     */
+    ArrayList<CommentBean> getObjectComments(def object) {
+
+        log.info("Will get comments for object:" + object)
+
+        escalatePrivilage("\t")
+        ArrayList<CommentBean> comments = objectFacade.findCommentBeans(getObjectBean(object).id)
+        dropPrivilage("\t")
+
+        log.info("\tReturning ${comments.size()} comments")
+
+        return comments
+
+    }
+
+
+    /**
+     * Delete an object comment
+     * @param comment the id or CommentBean
+     * @return a boolean representing sucess
+     * @throws InsightException
+     */
+    boolean deleteObjectComment(def comment) throws InsightException {
+
+        int commentId
+
+        if (comment instanceof Integer || comment instanceof Long) {
+            commentId = comment
+        } else if (comment instanceof CommentBean) {
+            commentId = comment.id
+        } else {
+            throw new InputMismatchException("Error when deleting object comment. The comment parameter is of an unknown type:" + comment?.class?.simpleName as String)
+        }
+
+        log.info("Deleting object comment:" + commentId)
+        escalatePrivilage("\t")
+        objectFacade.deleteCommentBean(commentId)
+        boolean success = objectFacade.loadCommentBean(commentId) == null
+        dropPrivilage("\t")
+
+        log.info("\tComment deleted:" + success)
+
+        return success
+
 
     }
 
