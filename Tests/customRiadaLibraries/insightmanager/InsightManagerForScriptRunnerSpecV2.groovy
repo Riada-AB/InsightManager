@@ -16,7 +16,9 @@ import com.riadalabs.jira.plugins.insight.channel.external.api.facade.impl.IQLFa
 import com.riadalabs.jira.plugins.insight.channel.external.api.facade.impl.InsightPermissionFacadeImpl
 import com.riadalabs.jira.plugins.insight.channel.external.api.facade.impl.ObjectSchemaFacadeImpl
 import com.riadalabs.jira.plugins.insight.channel.external.api.facade.impl.ProgressFacadeImpl
-import com.riadalabs.jira.plugins.insight.common.exception.ImportObjectSchemaException
+import com.riadalabs.jira.plugins.insight.common.exception.InsightException
+import com.riadalabs.jira.plugins.insight.common.exception.PermissionInsightException
+import com.riadalabs.jira.plugins.insight.services.model.CommentBean
 import com.riadalabs.jira.plugins.insight.services.model.ObjectBean
 import com.riadalabs.jira.plugins.insight.services.model.ObjectSchemaBean
 import com.riadalabs.jira.plugins.insight.services.progress.ProgressCategory
@@ -25,7 +27,6 @@ import com.riadalabs.jira.plugins.insight.services.progress.model.ProgressId
 import groovy.json.JsonBuilder
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
-import io.riada.core.share.model.Share
 import jline.internal.InputStreamReader
 import org.apache.commons.io.FileUtils
 import org.apache.groovy.json.internal.LazyMap
@@ -41,9 +42,7 @@ import spock.lang.Specification
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import java.time.Duration
 import java.time.Instant
-import java.time.LocalDateTime
 import java.util.concurrent.TimeoutException
 import java.util.regex.Matcher
 import java.util.regex.Pattern
@@ -77,8 +76,9 @@ return
 
 JUnitCore jUnitCore = new JUnitCore()
 
-//Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, 'Test updateObjectAttributes with various attribute types'))
-Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
+Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, "Test Object comment CRD operations"))
+//Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, "Test updateObjectAttributes and updateObjectAttribute with various attribute types"))
+//Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
 
 
 spockResult.failures.each { log.error(it) }
@@ -162,8 +162,8 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
     }
 
     def cleanupSpec() {
+        /*
         log.info("Starting cleanup after all tests")
-
 
         if (specHelper.deleteScheme(testSchema)) {
             log.debug("\tDeleted test scheme")
@@ -172,6 +172,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
             throw new RuntimeException("Error deleting test scheme:" + testSchema.name)
         }
 
+         */
 
     }
 
@@ -472,8 +473,6 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
         when: "When setting attribute values with updateObjectAttributes"
 
-
-
         im.updateObjectAttributes(testObject, attributeValuesToSet)
 
 
@@ -562,21 +561,21 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         log.debug("\\" * 20 + " Testing updateObjectAttributes with various attribute types has finished " + "/" * 20)
 
         where:
-        objectTypeName               | attributeValuesToSet                                                                                                                                                                 | expectedAttributeValues                                                                                                                                  | loggedInUser               | serviceAccount
+        objectTypeName               | attributeValuesToSet                                                                                                                                                                   | expectedAttributeValues                                                                                                                                   | loggedInUser               | serviceAccount
 
 
         "Object With All Attributes" | [Name: "Updating an object attribute with ObjectBeans as jiraAdminUser", Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]   | [Name: [attributeValuesToSet.Name], Object: attributeValuesToSet.Object, "Text": [attributeValuesToSet.Text]]                                             | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
         "Object With All Attributes" | [Name: "Updating an object attribute with ObjectBeans as projectCustomer", Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"] | [Name: [attributeValuesToSet.Name], Object: attributeValuesToSet.Object, "Text": [attributeValuesToSet.Text]]                                             | specHelper.projectCustomer | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKeys as jiraAdminUser", Object: [IQL_REPLACE_WITH_KEYS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]    | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKeys as projectCustomer", Object: [IQL_REPLACE_WITH_KEYS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]  | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.projectCustomer | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectIds as jiraAdminUser", Object: [IQL_REPLACE_WITH_IDS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]     | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectIds as projectCustomer", Object: [IQL_REPLACE_WITH_IDS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]   | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.projectCustomer | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectBean as jiraAdminUser", Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]   | [Name: [attributeValuesToSet.Name], Object: attributeValuesToSet.Object, "Text": [attributeValuesToSet.Text]]                                            | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectBean as projectCustomer", Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": "Some text value"] | [Name: [attributeValuesToSet.Name], Object: attributeValuesToSet.Object, "Text": [attributeValuesToSet.Text]]                                            | specHelper.projectCustomer | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKey as jiraAdminUser", Object: [IQL_REPLACE_WITH_KEY: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]     | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKey as projectCustomer", Object: [IQL_REPLACE_WITH_KEY: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]   | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.projectCustomer | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectId as jiraAdminUser", Object: [IQL_REPLACE_WITH_ID: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]       | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
-        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectId as projectCustomer", Object: [IQL_REPLACE_WITH_ID: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]     | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.projectCustomer | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKeys as jiraAdminUser", Object: [IQL_REPLACE_WITH_KEYS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]     | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKeys as projectCustomer", Object: [IQL_REPLACE_WITH_KEYS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]   | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.projectCustomer | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectIds as jiraAdminUser", Object: [IQL_REPLACE_WITH_IDS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]       | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectIds as projectCustomer", Object: [IQL_REPLACE_WITH_IDS: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]     | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEANS: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]] | specHelper.projectCustomer | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectBean as jiraAdminUser", Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]     | [Name: [attributeValuesToSet.Name], Object: attributeValuesToSet.Object, "Text": [attributeValuesToSet.Text]]                                             | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectBean as projectCustomer", Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]   | [Name: [attributeValuesToSet.Name], Object: attributeValuesToSet.Object, "Text": [attributeValuesToSet.Text]]                                             | specHelper.projectCustomer | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKey as jiraAdminUser", Object: [IQL_REPLACE_WITH_KEY: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]       | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]]  | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectKey as projectCustomer", Object: [IQL_REPLACE_WITH_KEY: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]     | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]]  | specHelper.projectCustomer | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectId as jiraAdminUser", Object: [IQL_REPLACE_WITH_ID: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]         | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]]  | specHelper.jiraAdminUser   | specHelper.jiraAdminUser
+        "Object With All Attributes" | [Name: "Updating an object attribute with ObjectId as projectCustomer", Object: [IQL_REPLACE_WITH_ID: "objectType = \"Object With All Attributes\""], "Text": "Some text value"]       | [Name: [attributeValuesToSet.Name], Object: [IQL_REPLACE_WITH_BEAN: "objectType = \"Object With All Attributes\""], "Text": [attributeValuesToSet.Text]]  | specHelper.projectCustomer | specHelper.jiraAdminUser
 
 
     }
@@ -981,6 +980,105 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
     }
 
 
+    def "Test Object comment CRD operations"(String objectTypeName, Map attributeValuesToSet) {
+
+        setup:
+        log.info("Will test creation of objects with all attribute types")
+        InsightManagerForScriptrunner im = new InsightManagerForScriptrunner()
+        im.log.setLevel(Level.WARN)
+
+        log.debug("\tCreating an object:")
+        log.debug("\t" * 2 + "ObjectType:" + objectTypeName)
+        log.debug("\t" * 2 + "Attributes:" + attributeValuesToSet)
+
+        ObjectBean newObject = im.createObject(testSchema.id, objectTypeName, attributeValuesToSet)
+        log.debug("\tThe new objects key is:" + newObject.objectKey)
+
+
+        when: "Getting comments from an object without comments"
+        log.debug("\tWhen getting comments from an object without comments")
+        ArrayList<CommentBean> commentBeans = im.getObjectComments(newObject)
+
+
+        then: "An empty array should be returned"
+        log.debug("\t" *2+ "An empty array should be returned")
+        assert commentBeans.isEmpty(): "A non empty array was returned"
+        log.debug("\t\tThe array is empty:" + commentBeans.empty)
+
+
+        when: "Manager creates a comment with default access level"
+        log.debug("\tWhen manager creates a comment with default access level")
+
+        String defaultAccessCommentText = "A comment with default access level"
+        im.setServiceAccount(specHelper.insightSchemaManager)
+        CommentBean unrestrictedCommentBean = im.createObjectComment(newObject, defaultAccessCommentText)
+
+        then: "It should be readable by schema manager"
+        log.debug("\t"*2 + "It should be readable by schema manager")
+        im.getObjectComments(newObject).findAll{it.comment == defaultAccessCommentText}.size() == 1
+        log.debug("\t"*2 + (im.getObjectComments(newObject).findAll{it.comment == defaultAccessCommentText}.size() == 1))
+
+        then: "It should be readable by schema user"
+        log.debug("\t"*2 + "It should be readable by schema user")
+        im.setServiceAccount(specHelper.insightSchemaUser)
+        im.getObjectComments(newObject).findAll{it.comment == defaultAccessCommentText}.size() == 1
+        log.debug("\t"*2 + (im.getObjectComments(newObject).findAll{it.comment == defaultAccessCommentText}.size() == 1))
+
+
+        //This is confirmed to fail in Insight 8.6.12, the Insight API ignores supplied authors.
+        /*
+        then: "It should be authored by the schema manager"
+        unrestrictedCommentBean.author == specHelper.insightSchemaManager.key
+         */
+
+
+        when: "Manager creates a comment with manager access level"
+        log.debug("\tWhen manager creates a comment with default access level")
+
+        String managerAccessCommentText = "A comment with manager access level"
+        im.setServiceAccount(specHelper.insightSchemaManager)
+        CommentBean restrictedCommentBean = im.createObjectComment(newObject, managerAccessCommentText, CommentBean.ACCESS_LEVEL_MANAGERS)
+
+        then: "It should be readable by schema manager"
+        log.debug("\t" *2 + "It should be readable by schema manager")
+        im.getObjectComments(newObject).findAll{it.comment == managerAccessCommentText}.size() == 1
+        log.debug("\t"*2 + (im.getObjectComments(newObject).findAll{it.comment == managerAccessCommentText}.size() == 1))
+
+
+        //This is confirmed to fail in Inishgt 8.6.12, the Insight API will let users view restricted comments.
+        /*
+        then: "It should not be readable by schema user"
+        log.debug("\tIt not should be readable by schema user")
+        im.setServiceAccount(specHelper.insightSchemaUser)
+        im.getObjectComments(newObject).findAll{it.comment == managerAccessCommentText}.size() == 0
+        log.debug("\t"*2 + (im.getObjectComments(newObject).findAll{it.comment == managerAccessCommentText}.size() == 0))
+
+         */
+
+        when: "A schema user tries to delete a comment restricted to managers"
+        log.debug("\tWhen a schema user tries to delete a comment restricted to managers")
+        im.setServiceAccount(specHelper.insightSchemaUser)
+        im.deleteObjectComment(restrictedCommentBean)
+
+        then: "It should not be deleted"
+        log.debug("\t"*2 + "An error should be thrown")
+        InsightException exception = thrown(PermissionInsightException)
+        log.debug("\t"*2 + exception.message)
+
+
+
+        then: "It should still be accessible to schema managers"
+        log.debug("\tIt should still be accessible to schema managers")
+        im.setServiceAccount(specHelper.insightSchemaManager)
+        im.getObjectComments(newObject).findAll{it.comment == managerAccessCommentText}.size() == 1
+        log.debug("\t"*2 + (im.getObjectComments(newObject).findAll{it.comment == managerAccessCommentText}.size() == 1))
+
+        where:
+        objectTypeName               | attributeValuesToSet
+        "Object With All Attributes" | [Name: "Testing object comments",]
+
+    }
+
 }
 
 
@@ -1158,6 +1256,13 @@ class SpecHelper {
         String imageUrl = "https://github.com/Riada-AB/InsightManager-TestingResources/raw/master/SPOC-golden-image.zip"
 
         log.info("Setting up new Test ObjectSchema")
+
+        ObjectSchemaBean oldSchema = objectSchemaFacade.findObjectSchemaBeans().find{it.name == schemaName}
+
+        if (oldSchema != null) {
+            log.debug("\tFound old test schema, deleting it first")
+            deleteScheme(oldSchema)
+        }
 
         File imageZip = new File(jiraHome.canonicalPath + "/import/insight/" + imageUrl.split("/").last())
         if (useCachedGoldenImage && imageZip.exists()) {
