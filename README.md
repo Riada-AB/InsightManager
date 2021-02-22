@@ -7,10 +7,11 @@ IM is built to be as user friendly and flexible as possible. If you are comforta
 
 IM can be used anywhere ScriptRunner executes groovy scripts, for example workflow transitions, behaviors and REST endpoints. The second release of IM will also support being run by Insight own groovy capabilities. 
 
-InsightManager was initially created by Riada AB which is a partner to Mindville who are the creators of Insight. 
+InsightManager was initially created by Riada AB which at the time was a partner to Mindville who are the creators of Insight. 
 InsightManager is still maintained by Riada AB but welcomes any and all inputs and pull requests. 
 InsightManager is provided “as is” without warranty of any kind, it is to be used at your own risk and always tested in a non production environment first.
 
+“THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.”
 
 
 ## Some quick examples to grab your attention
