@@ -76,12 +76,18 @@ return
 
 JUnitCore jUnitCore = new JUnitCore()
 
-Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, "Test Object comment CRD operations"))
+//Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, "Test Object comment CRD operations"))
 //Result spockResult = jUnitCore.run(Request.method(InsightManagerForScriptRunnerSpecificationsV2.class, "Test updateObjectAttributes and updateObjectAttribute with various attribute types"))
-//Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
+Result spockResult = jUnitCore.run(InsightManagerForScriptRunnerSpecificationsV2)
 
 
-spockResult.failures.each { log.error(it) }
+spockResult.failures.each {
+    log.error(it)
+    log.error(it.description)
+    log.error(it.message)
+    log.error(it.testHeader)
+    log.error(it.trace)
+}
 
 spockResult.each { log.info("Result:" + it.toString()) }
 
@@ -1026,7 +1032,7 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
 
 
         //This is confirmed to fail in Insight 8.6.12, the Insight API ignores supplied authors.
-        /*
+        /* https://jira.mindville.com/browse/ICS-1879
         then: "It should be authored by the schema manager"
         unrestrictedCommentBean.author == specHelper.insightSchemaManager.key
          */
@@ -1045,8 +1051,8 @@ class InsightManagerForScriptRunnerSpecificationsV2 extends Specification {
         log.debug("\t"*2 + (im.getObjectComments(newObject).findAll{it.comment == managerAccessCommentText}.size() == 1))
 
 
-        //This is confirmed to fail in Inishgt 8.6.12, the Insight API will let users view restricted comments.
-        /*
+        //This is confirmed to fail in Insight 8.6.12, the Insight API will let users view restricted comments.
+        /* https://jira.mindville.com/browse/ICS-1860
         then: "It should not be readable by schema user"
         log.debug("\tIt not should be readable by schema user")
         im.setServiceAccount(specHelper.insightSchemaUser)
@@ -1153,6 +1159,7 @@ class SpecHelper {
                         projectCustomer: "CustomerName"
                 ]
         ]
+
         boolean fileCreated = settingsFile.createNewFile()
 
         if (fileCreated) {

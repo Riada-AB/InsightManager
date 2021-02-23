@@ -4,6 +4,8 @@ import com.atlassian.jira.component.ComponentAccessor
 import com.atlassian.jira.config.util.JiraHome
 import com.riadalabs.jira.plugins.insight.services.model.AttachmentBean
 
+//TODO update documentation linking to this file
+
 /**
  * <h3>This is a class intended to simplify working with Insight AttachmentBeans</h3>
  * Once instantiated it will give you easy access to the AttachmentBean it self as well as the related File object
