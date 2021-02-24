@@ -3,7 +3,6 @@ package customRiadaLibraries.insightmanager
 import com.atlassian.jira.component.ComponentAccessor
 import com.atlassian.jira.config.properties.APKeys
 import com.atlassian.jira.config.util.JiraHome
-import com.atlassian.jira.plugin.PluginVersionStore
 import com.atlassian.jira.security.JiraAuthenticationContext
 import com.atlassian.jira.user.ApplicationUser
 import com.atlassian.jira.user.util.UserManager
@@ -11,7 +10,6 @@ import com.atlassian.jira.web.ExecutingHttpRequest
 import com.onresolve.scriptrunner.runner.customisers.WithPlugin
 import com.riadalabs.jira.plugins.insight.channel.external.api.facade.impl.*
 import com.riadalabs.jira.plugins.insight.common.exception.InsightException
-import com.riadalabs.jira.plugins.insight.common.exception.PermissionInsightException
 import com.riadalabs.jira.plugins.insight.services.events.EventDispatchOption
 import com.riadalabs.jira.plugins.insight.services.imports.model.ImportSource
 import com.riadalabs.jira.plugins.insight.services.model.*
@@ -32,13 +30,26 @@ import java.text.DateFormat
 import java.time.LocalDateTime
 
 /**
+ *
+ * 2021-02-23 Notice of intended deprecation
+ *  We are currently evaluating removing the "autoEscalate" functionality as it quite complicated to maintain,
+ *  but easy enough to implement in the script using IM. We will first note the affected methods as Deprecated
+ *  and will remove them at a later stage.
+ *  We welcome any input on this suggested change, please raise an issue in the IM github repo.
+ *
+ *  setServiceAccount()
+ *  escalatePrivilage()
+ *  dropPrivilage()
+ *
+ *
+ *
  * Breaking changes 2020-10-11
  *  getObjectAttributeValues()
  *      When returning status attribute this method used to return the ID of the status, from now on the Name of the status is returned.
  *      NOTE: this changes the output of renderObjectToHtml()
  *
  * Breaking changes in 8.4
- *  getObjectAttributeValues() doesnt return empty values
+ *  getObjectAttributeValues() doesn't return empty values
  *                                                                     <=8.3                           >=8.4
  * im.getObjectAttributeValues("KEY-123", "An Empty Attribute")        []                              []
  * im.getObjectAttributeValues("KEY-123", ["An Empty Attribute"])      [A Empty Attribute:[]]          [:]
@@ -56,7 +67,9 @@ class InsightManagerForScriptrunner {
 
 
     Logger log
+    @Deprecated
     ApplicationUser initialUser
+    @Deprecated
     ApplicationUser serviceUser
     Class objectFacadeClass
     ObjectFacadeImpl objectFacade
@@ -77,7 +90,9 @@ class InsightManagerForScriptrunner {
     Class configureFacadeClass
     ConfigureFacadeImpl configureFacade
     public boolean readOnly
+    @Deprecated
     public boolean autoEscalate = true//should Insight requests be automatically escalated?
+    @Deprecated
     private boolean currentlyEscalate = false
     boolean inJsdBehaviourContext //Set to true if currently executing as a Behaviour in JSD
     String baseUrl
@@ -94,16 +109,6 @@ class InsightManagerForScriptrunner {
 
     InsightManagerForScriptrunner() {
 
-        PluginVersionStore pluginVersionStore = ComponentAccessor.getComponentOfType(PluginVersionStore)
-        ArrayList<Integer> currentInsightVersion = pluginVersionStore.getAll().find { it.name == "Insight" }.version.split(/\./).collect { it.toInteger() }
-        ArrayList<Integer> minInsightVersion = [8, 4, 0]
-        if (currentInsightVersion[0] < minInsightVersion[0] ||
-                currentInsightVersion[1] < minInsightVersion[1] ||
-                currentInsightVersion[2] < minInsightVersion[2]
-        ) {
-
-            throw new InputMismatchException("Unsupported Insight verion ${currentInsightVersion.join(".")}, minimum supported verion is  ${minInsightVersion.join(".")}")
-        }
 
 
         //The facade classes
@@ -367,10 +372,17 @@ class InsightManagerForScriptrunner {
 
 
     /**
+     * @deprecated
+      This method and the rest of the autoEscalate-functionality is currently being evaluated for removal.
+     * <br>
+     * <br>
      * Used to set the Service Account to be used when interacting with Insight
      * @param userSuppliedServiceUser can be an ApplicationUser or a String containing the user Key or user Name
      */
+    @Deprecated
     void setServiceAccount(def userSuppliedServiceUser = "") {
+
+        log.warn("This InsightManager method (setServiceAccount) is currently being evaluated for removal")
 
 
         if (initialUser == null) {
@@ -410,7 +422,9 @@ class InsightManagerForScriptrunner {
     }
 
     //Switch user context from initial user to service user
+    @Deprecated
     private boolean escalatePrivilage(String logPrepend = "") {
+
 
         if (autoEscalate && serviceUser != null && initialUser != null && !currentlyEscalate) {
             log.trace(logPrepend + "Escalating user privileges to service account: $serviceUser from initial account: $initialUser")
@@ -440,6 +454,7 @@ class InsightManagerForScriptrunner {
     }
 
     //Switch user context from service user to initial user
+    @Deprecated
     private boolean dropPrivilage(String logPrepend = "") {
 
         if (autoEscalate && serviceUser != null && initialUser != null && currentlyEscalate) {
@@ -1570,6 +1585,7 @@ class InsightManagerForScriptrunner {
 
     /**
      * Create an object comment
+     * Note that as of 2020-02 the author of the comment is not completely deterministic: https://jira.mindville.com/browse/ICS-1879
      * @param object id, key, objectBean of the object you´d like to add a comment to
      * @param commentText The text/body of the comment
      * @param accessLevel The access level of the comment, default is Users
