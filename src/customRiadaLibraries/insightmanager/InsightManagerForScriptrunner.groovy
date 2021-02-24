@@ -150,7 +150,7 @@ class InsightManagerForScriptrunner {
 
         eventDispatchOption = EventDispatchOption.DISPATCH
 
-        inJsdBehaviourContext = new ExecutingHttpRequest().get().servletPath.startsWith("/rest/scriptrunner/behaviours/latest/jsd/jsd")
+        inJsdBehaviourContext = new ExecutingHttpRequest()?.get()?.servletPath?.startsWith("/rest/scriptrunner/behaviours/latest/jsd/jsd")
         initialUser = authContext.getLoggedInUser()
 
 
