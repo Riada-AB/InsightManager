@@ -987,41 +987,51 @@ class InsightManagerForScriptrunner {
     /**
      * Gets all values of single object attribute. Returns the values as list
      * @param Object Can be ObjectBean/MutableObjectBean,Object Key (string) or object ID (int).
-     * @param Attribute can be attribute ID (int) or attribute name (string)
+     * @param Attribute can be attribute ID (int), attribute name (string) or a series of attribute names (string) separated by dots
      * @return List of results, if a referenced object is part of the result an ObjectBean will be returned, if empty an empty list.
      */
     List getObjectAttributeValues(def Object, def Attribute) {
 
 
         ObjectBean object = getObjectBean(Object)
-        ObjectTypeAttributeBean objectTypeAttributeBean = getObjectTypeAttributeBean(Attribute, object.objectTypeId)
+        if(Attribute instanceof String && Attribute.tokenize('.').size() > 1){
+            log.info("Getting the first part of Attribute dot notation")
+            def dotNotationElements = Attribute.tokenize('.')
+            def objectReference = getObjectAttributeValues(Object, dotNotationElements.first() as String)
 
-        log.info("Getting object (${object.objectKey}) attribute value (${objectTypeAttributeBean.name})")
-
-        //if there are attribute beans, return them if not return empty list
-        escalatePrivilage("\t")
-        List<ObjectAttributeValueBean> valueBeans = objectFacade.loadObjectAttributeBean(object.id, objectTypeAttributeBean.id) ? objectFacade.loadObjectAttributeBean(object.id, objectTypeAttributeBean.id).getObjectAttributeValueBeans() : []
-        dropPrivilage("\t")
-
-
-        log.trace("\tGot values:" + valueBeans.collect { it.value })
-
-        List values = valueBeans.collect {
-            if (it.referencedObjectBeanId != null) {
-                return getObjectBean(it.value)
-            } else if (objectTypeAttributeBean.status) {
-                escalatePrivilage("\t")
-                String statusName = configureFacade.loadStatusTypeBean(it.value as int).name
-                dropPrivilage("\t")
-                return statusName
-            } else {
-                return it.value
+            if(!(objectReference[0]  instanceof ObjectBean)){
+                throw new InputMismatchException("Attempted to get value for Attribute containing dot notation ($Attribute) from $object.objectKey but the first element is not an Object Reference. Returned element: ${objectReference[0]} (${objectReference[0].getClass()})")
             }
+            return  objectReference.collect{getObjectAttributeValues(it,dotNotationElements.drop(1).join('.'))}.flatten().unique()
+        } else {
+            ObjectTypeAttributeBean objectTypeAttributeBean = getObjectTypeAttributeBean(Attribute, object.objectTypeId)
+
+            log.info("Getting object (${object.objectKey}) attribute value (${objectTypeAttributeBean.name})")
+
+            //if there are attribute beans, return them if not return empty list
+            escalatePrivilage("\t")
+            List<ObjectAttributeValueBean> valueBeans = objectFacade.loadObjectAttributeBean(object.id, objectTypeAttributeBean.id) ? objectFacade.loadObjectAttributeBean(object.id, objectTypeAttributeBean.id).getObjectAttributeValueBeans() : []
+            dropPrivilage("\t")
+
+
+            log.trace("\tGot values:" + valueBeans.collect { it.value })
+
+            List values = valueBeans.collect {
+                if (it.referencedObjectBeanId != null) {
+                    return getObjectBean(it.value)
+                } else if (objectTypeAttributeBean.status) {
+                    escalatePrivilage("\t")
+                    String statusName = configureFacade.loadStatusTypeBean(it.value as int).name
+                    dropPrivilage("\t")
+                    return statusName
+                } else {
+                    return it.value
+                }
+            }
+
+
+            return values
         }
-
-
-        return values
-
 
     }
 
