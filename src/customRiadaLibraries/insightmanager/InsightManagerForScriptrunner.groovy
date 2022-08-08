@@ -747,10 +747,14 @@ class InsightManagerForScriptrunner {
             // make sure everything is a string
             if (value instanceof ArrayList) {
                 ArrayList<String> valueStrings = []
-                if (value.first() instanceof ObjectBean) {
-                    valueStrings = value.collect { it.id.toString() }
+                if (!value.isEmpty()) {
+                    if (value.first() instanceof ObjectBean) {
+                        valueStrings = value.collect { it.id.toString() }
+                    } else {
+                        valueStrings = value.collect { it.toString() }
+                    }
                 } else {
-                    valueStrings = value.collect { it.toString() }
+                    valueStrings = []
                 }
                 escalatePrivilage("\t")
                 newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *valueStrings)
