@@ -733,54 +733,48 @@ class InsightManagerForScriptrunner {
     }
 
     /**
-     * Updates a single objects single attribute with one or multiple values.
-     * @param object Can be object ID, Object Key or ObjectBean
+     * Updates a single objectBean single attribute with one or multiple values.
+     * @param objectBean ObjectBean to be updated
      * @param attribute Can be name of Attribute or AttributeID
      * @param value Can be an array of values or a single object such as a string, ApplicationUser
      * @return Retuns the new/updated ObjectAttributeBean
      */
-    ObjectAttributeBean updateObjectAttribute(def object, def attribute, def value) {
-
-        log.info("Updating Object $object attribute $attribute with value $value")
-
-
-        ObjectBean objectBean = getObjectBean(object)
-        ObjectAttributeBean newObjectAttributeBean = null
-
+    ObjectAttributeBean updateObjectAttributeBean(ObjectBean objectBean, def attribute, def value) {
+        MutableObjectTypeAttributeBean attributeBean = getObjectTypeAttributeBean(attribute, objectBean.objectTypeId).createMutable()
+        MutableObjectAttributeBean newAttributeBean = null
 
         try {
-
-            log.trace("\tObjectbean:" + objectBean)
-
-            MutableObjectTypeAttributeBean attributeBean = getObjectTypeAttributeBean(attribute, objectBean.objectTypeId).createMutable()
-
-            MutableObjectAttributeBean newAttributeBean
+            // make sure everything is a string
             if (value instanceof ArrayList) {
-                //make sure everything is a string
-                if (value.first() instanceof ObjectBean) {
-                    value = value.collect { it.id.toString() }
+                ArrayList<String> valueStrings = []
+                if (!value.isEmpty()) {
+                    if (value.first() instanceof ObjectBean) {
+                        valueStrings = value.collect { it.id.toString() }
+                    } else {
+                        valueStrings = value.collect { it.toString() }
+                    }
                 } else {
-                    value = value.collect { it.toString() }
+                    valueStrings = []
                 }
-
                 escalatePrivilage("\t")
-                newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *value)
+                newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *valueStrings)
                 dropPrivilage("\t")
-
             } else {
-
+                String valueString = ""
                 if (value instanceof ObjectBean) {
-                    value = value.id
+                    valueString = value.id.toString()
+                } else {
+                    valueString = value.toString()
                 }
-
                 escalatePrivilage("\t")
-                newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, value as String)
+                newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, valueString)
                 dropPrivilage("\t")
             }
 
             escalatePrivilage("\t")
             ObjectAttributeBean oldAttributeBean = objectFacade.loadObjectAttributeBean(objectBean.id, attributeBean.id)
             dropPrivilage("\t")
+
 
             // If attribute exist reuse the old id for the new attribute
             if (oldAttributeBean != null) {
@@ -791,7 +785,6 @@ class InsightManagerForScriptrunner {
                 log.info("Attribute not updated, currently in read only mode")
                 return null
             } else {
-
                 escalatePrivilage("\t")
                 newObjectAttributeBean = objectFacade.storeObjectAttributeBean(newAttributeBean, this.eventDispatchOption)
                 dropPrivilage("\t")
@@ -804,19 +797,29 @@ class InsightManagerForScriptrunner {
                     return newObjectAttributeBean
                 }
             }
-
-
         } catch (all) {
-            log.error("\tError updating object attribute:" + all.message)
+            log.error("Error updating attribute:" + all.message)
             logRelevantStacktrace(all.stackTrace)
             dropPrivilage("\t")
-
         }
 
         dropPrivilage("\t")
-
         return newObjectAttributeBean
+    }
 
+    /**
+     * Updates a single objects single attribute with one or multiple values.
+     * @param object Can be object ID, Object Key or ObjectBean
+     * @param attribute Can be name of Attribute or AttributeID
+     * @param value Can be an array of values or a single object such as a string, ApplicationUser
+     * @return Retuns the new/updated ObjectAttributeBean
+     */
+    ObjectAttributeBean updateObjectAttribute(def object, def attribute, def value) {
+
+        log.info("Updating Object $object attribute $attribute with value $value")
+
+        ObjectBean objectBean = getObjectBean(object)
+        return updateObjectAttributeBean(objectBean, attribute, value)
     }
 
     /**
@@ -829,90 +832,15 @@ class InsightManagerForScriptrunner {
 
         log.info("Updating ${attributeValueMap.size()} Object $object attributes")
 
-
         ObjectBean objectBean = getObjectBean(object)
-
-        ArrayList<ObjectAttributeBean> newObjectAttributeBeans = []
-
-        try {
-
-            log.trace("\tObjectbean:" + objectBean)
-
-
-            attributeValueMap.clone().each { Map.Entry map ->
-
-                MutableObjectTypeAttributeBean attributeBean = getObjectTypeAttributeBean(map.key, objectBean.objectTypeId).createMutable()
-
-                MutableObjectAttributeBean newAttributeBean
-                if (map.value instanceof ArrayList) {
-                    //make sure everything is a string
-
-                    if (map.value.first() instanceof ObjectBean) {
-                        map.value = map.value.collect { it.id.toString() }
-                    } else {
-                        map.value = map.value.collect { it.toString() }
-                    }
-
-
-                    escalatePrivilage("\t")
-                    newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, *map.value)
-                    dropPrivilage("\t")
-
-                } else {
-
-                    if (map.value instanceof ObjectBean) {
-                        map.value = map.value.id
-                    }
-
-                    escalatePrivilage("\t")
-                    newAttributeBean = objectAttributeBeanFactory.createObjectAttributeBeanForObject(objectBean, attributeBean, map.value as String)
-                    dropPrivilage("\t")
-                }
-
-                escalatePrivilage("\t")
-                ObjectAttributeBean oldAttributeBean = objectFacade.loadObjectAttributeBean(objectBean.id, attributeBean.id)
-                dropPrivilage("\t")
-
-                // If attribute exist reuse the old id for the new attribute
-                if (oldAttributeBean != null) {
-                    newAttributeBean.setId(oldAttributeBean.id)
-                }
-
-                if (readOnly) {
-                    log.info("Attribute not updated, currently in read only mode")
-                    return null
-                } else {
-
-                    escalatePrivilage("\t")
-                    ObjectAttributeBean newObjectAttributeBean = objectFacade.storeObjectAttributeBean(newAttributeBean, this.eventDispatchOption)
-                    dropPrivilage("\t")
-
-                    if (newObjectAttributeBean != null) {
-                        newObjectAttributeBeans.add(newObjectAttributeBean)
-                        log.info("Successfully updated attribute")
-
-                    } else {
-                        log.error("Failed to update attribute")
-                        throw new RuntimeException("Failed to update Object (${objectBean.objectKey}) attribute: ${map.key} with value: ${map.value}")
-
-                    }
-                }
-
-
+        return attributeValueMap.collect { Map.Entry(key, value) ->
+            ObjectAttributeBean newObjectAttributeBean = updateObjectAttributeBean(objectBean, key, value)
+            if (newObjectAttributeBean != null) {
+                return newObjectAttributeBean
+            } else {
+                throw new RuntimeException("Failed to update Object (${objectBean.objectKey}) attribute: ${map.key} with value: ${map.value}")
             }
-
-
-        } catch (all) {
-            log.error("\tError updating object attribute:" + all.message)
-            logRelevantStacktrace(all.stackTrace)
-            dropPrivilage("\t")
-
         }
-
-        dropPrivilage("\t")
-
-        return newObjectAttributeBeans
-
     }
 
     //Find ObjectTypeAttributeBean
