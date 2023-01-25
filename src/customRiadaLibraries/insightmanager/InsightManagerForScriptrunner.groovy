@@ -539,8 +539,8 @@ class InsightManagerForScriptrunner {
 
             try {
                 escalatePrivilage("\t")
-                long attributeBeanId = objectFacade.loadObjectAttributeBean(objectBean.id, attribute).id
-                if (attributeBeanId != null) {
+                Long attributeBeanId = objectFacade.loadObjectAttributeBean(objectBean.id, attribute)?.id
+                if (attributeBeanId) {
 
                     objectFacade.deleteObjectAttributeBean(attributeBeanId, this.eventDispatchOption)
 
