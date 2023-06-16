@@ -5,7 +5,7 @@ InsightManager (IM) is a wrapper for the most frequently used Insight JAV API´s
 
 IM is built to be as user friendly and flexible as possible. If you are comfortable with the general structure of Insights and know how to work with Groovy Arrays, Maps, Strings and Integers then you will be up and running in no time at all!
 
-IM can be used anywhere ScriptRunner executes groovy scripts, for example workflow transitions, behaviors and REST endpoints. The second release of IM will also support being run by Insight own groovy capabilities. 
+IM can be used anywhere ScriptRunner executes groovy scripts, for example workflow transitions, behaviors and REST endpoints. The second release of IM will also support being run by Insight own groovy capabilities.
 
 InsightManager was initially created by Riada AB which at the time was a partner to Mindville who are the creators of Insight. 
 InsightManager is still maintained by Riada AB but welcomes any and all inputs and pull requests. 
@@ -13,6 +13,15 @@ InsightManager is provided “as is” without warranty of any kind, it is to be
 
 “THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.”
 
+### Update
+
+As of ScriptRunner version 7.11, ScriptRunner has native support for common Insight use-cases, such as creating, retrieving and updating object beans, searching using IQL/AQL, and working with comments and attachments. We call this HAPI.
+
+When you use HAPI your scripts are much simpler and more readable, and avoids you having to add a library to the classpath. 
+
+Read more about working with Insight with HAPI [here](https://docs.adaptavist.com/sr4js/latest/hapi/work-with-assets-insight).
+
+There are a few things this library does that are not covered by HAPI, so you may prefer to use this library. Feel free to let us know about anything missing in HAPI at our [support portal](https://productsupport.adaptavist.com/servicedesk/customer/portal/2).
 
 ## Some quick examples to grab your attention
 ```Groovy
